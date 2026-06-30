@@ -1,0 +1,17 @@
+# Render Blueprint — one-click deploy to a public URL.
+# Render.com → New → Blueprint → connect this repo → Apply.
+services:
+  - type: web
+    name: remix-hub
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: "8080"
+      # Default storage is in-memory (seeded demo data, resets on restart).
+      # To persist, add a Postgres instance and set DATABASE_URL here.

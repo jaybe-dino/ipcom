@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+.git
+*.log
+apps/desktop/src-tauri/target
+apps/mobile/.expo
+coverage
+.env
+.env.*

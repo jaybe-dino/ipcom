@@ -1,5 +1,8 @@
-import { pathToFileURL } from "node:url";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
 import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core";
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
@@ -243,6 +246,24 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     head_hash: await repo.ledgerHead(),
     integrity_ok: (await repo.verifyLedger()) === -1,
   }));
+
+  // --- Static web (single-service deploy) ---
+  // When the built web app is present, serve it from the same origin so one
+  // service hosts the whole site. The web build must target same-origin
+  // (VITE_API_BASE=""), so its /spaces, /ws/... calls hit these routes.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const webDist = process.env.WEB_DIST ? resolve(process.env.WEB_DIST) : resolve(here, "../../web/dist");
+  if (existsSync(join(webDist, "index.html"))) {
+    app.register(fastifyStatic, { root: webDist, wildcard: false });
+    // SPA fallback: serve index.html for unmatched GET navigations.
+    app.setNotFoundHandler((req, reply) => {
+      if (req.method === "GET" && !req.url.startsWith("/ws")) {
+        return reply.sendFile("index.html");
+      }
+      return reply.code(404).send({ error: "not_found" });
+    });
+    app.log.info(`serving web from ${webDist}`);
+  }
 
   return app;
 }
