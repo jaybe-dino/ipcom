@@ -392,4 +392,10 @@ td b { font-weight: 700; }
 .composer-tabs button { background: var(--panel2); color: var(--mut); border: 1px solid var(--line); border-radius: 9px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .composer-tabs button.on { border-color: var(--acc); color: #fff; background: rgba(124, 92, 255, 0.12); }
 
+/* Share */
+.sharebar { margin-top: 14px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 13px; }
+.sharebar-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; }
+.sharebar-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.sharebar-url { margin-top: 10px; font-size: 11px; color: var(--mut); word-break: break-all; }
+
 .foot { text-align: center; color: var(--mut); font-size: 11px; margin-top: 18px; }

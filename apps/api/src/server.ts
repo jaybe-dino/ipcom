@@ -7,9 +7,11 @@ import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
+import type { LicenseManifest } from "@remix-hub/core";
 import { MemoryAssetStore } from "./assets/store.js";
 import { MarketService } from "./market.js";
 import { PluginGateway } from "./plugins/gateway.js";
+import { renderShareCard, renderSharePage } from "./share.js";
 import { EventBus } from "./realtime/bus.js";
 import { registerRealtime } from "./realtime/ws.js";
 import { MemoryRepo, createRepo, type Repo } from "./repo/index.js";
@@ -254,6 +256,39 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   });
 
   app.get("/market/orders", async () => ({ orders: await repo.listOrders() }));
+
+  // --- Public share (external platforms: OG/Twitter rich previews) ---
+  const absoluteBase = (req: { headers: Record<string, unknown> }): string => {
+    const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || "https";
+    const host = (req.headers["x-forwarded-host"] as string) || (req.headers.host as string);
+    return `${proto}://${host}`;
+  };
+
+  async function loadShare(id: string) {
+    const ex = await repo.getExport(id);
+    if (!ex?.license_doc) return null;
+    const asset = await assets.get(ex.license_doc);
+    if (!asset) return null;
+    const creation = await repo.getCreation(ex.creation_id);
+    return { manifest: asset.data as LicenseManifest, creation };
+  }
+
+  app.get("/share/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const data = await loadShare(id);
+    if (!data) return reply.code(404).type("text/html").send("<h1>공유할 수 없는 항목입니다</h1>");
+    const base = absoluteBase(req);
+    return reply
+      .type("text/html")
+      .send(renderSharePage(data.manifest, data.creation, { baseUrl: base, exportId: id, appUrl: base }));
+  });
+
+  app.get("/share/:id/card.svg", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const data = await loadShare(id);
+    if (!data) return reply.code(404).send("not found");
+    return reply.type("image/svg+xml").send(renderShareCard(data.manifest, data.creation));
+  });
 
   // --- License Ledger ---
   app.get("/ledger", async () => ({

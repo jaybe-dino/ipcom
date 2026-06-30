@@ -151,4 +151,39 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     expect(manifest.manifest_hash).toHaveLength(64);
     expect(manifest.settlement.distribution.platform).toBeGreaterThan(0);
   });
+
+  it("serves a public share page with OG meta for an exported work", async () => {
+    const gen = await app.inject({
+      method: "POST",
+      url: "/spaces/space_artist_g/generations",
+      headers: bearer(creatorToken),
+      payload: { action: "image", prompt: "share me" },
+    });
+    const creationId = gen.json().creation.creation_id;
+    const exp = await app.inject({
+      method: "POST",
+      url: `/generations/${creationId}/export`,
+      headers: bearer(creatorToken),
+      payload: { use_type: "personal" },
+    });
+    const exportId = exp.json().export.export_id;
+    await app.inject({ method: "POST", url: `/exports/${exportId}/pay`, headers: bearer(creatorToken) });
+
+    const page = await app.inject({ method: "GET", url: `/share/${exportId}` });
+    expect(page.statusCode).toBe(200);
+    expect(page.headers["content-type"]).toContain("text/html");
+    expect(page.body).toContain('property="og:title"');
+    expect(page.body).toContain('name="twitter:card"');
+    expect(page.body).toContain("AI 생성");
+    expect(page.body).toContain("twitter.com/intent/tweet");
+
+    const card = await app.inject({ method: "GET", url: `/share/${exportId}/card.svg` });
+    expect(card.headers["content-type"]).toContain("image/svg+xml");
+    expect(card.body).toContain("<svg");
+  });
+
+  it("404s the share page for an unknown/unissued export", async () => {
+    const page = await app.inject({ method: "GET", url: "/share/exp_nope" });
+    expect(page.statusCode).toBe(404);
+  });
 });

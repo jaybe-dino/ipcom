@@ -1,6 +1,7 @@
 import { distribute, exportDecision, type IP, type UseType } from "@remix-hub/core";
 import { useState } from "react";
 import { ApiError, api } from "../api.js";
+import { ShareBar } from "../components/ShareBar.js";
 import { krw, useAsync } from "../useAsync.js";
 
 const IP_ID = "ip_artist_g";
@@ -26,6 +27,7 @@ export function GateScreen({
   const [step, setStep] = useState(1);
   const [msg, setMsg] = useState<{ kind: "err" | "ok"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shareExportId, setShareExportId] = useState<string | null>(null);
 
   // Client-side preview using the shared core engine (same logic the server runs).
   const ip: IP | null = consent.data ? ({ ip_id: IP_ID, owner_id: "user_owner_g", name: "아티스트 G", verification: "official", policy: consent.data.policy }) : null;
@@ -61,7 +63,8 @@ export function GateScreen({
         kind: "ok",
         text: `라이선스 발급 완료 · 분배 ${krw(distribution.owner)} / ${krw(distribution.creator)} / ${krw(distribution.platform)}`,
       });
-      setTimeout(onDone, 1200);
+      // Reveal external-platform share options for the newly licensed work.
+      setShareExportId(exp.export_id);
     } catch (e) {
       const reason = e instanceof ApiError ? e.message : "unknown";
       setMsg({ kind: "err", text: reason === "export_denied_by_policy" ? "이 용도는 IP 정책상 반출이 금지되어 있습니다." : `반출 실패: ${reason}` });
@@ -155,14 +158,25 @@ export function GateScreen({
 
           {msg && <div className={`banner ${msg.kind}`}>{msg.text}</div>}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <button className="btn gho" style={{ flex: 1 }} onClick={onCancel}>
-              취소
-            </button>
-            <button className="btn pri" style={{ flex: 2 }} onClick={submit} disabled={busy}>
-              {busy ? "처리 중…" : "승인 요청 + 정산 →"}
-            </button>
-          </div>
+          {shareExportId ? (
+            <>
+              <ShareBar exportId={shareExportId} title="REMIX HUB에서 만든 작품" />
+              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                <button className="btn gho" style={{ flex: 1 }} onClick={onDone}>
+                  정산 대시보드 →
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <button className="btn gho" style={{ flex: 1 }} onClick={onCancel}>
+                취소
+              </button>
+              <button className="btn pri" style={{ flex: 2 }} onClick={submit} disabled={busy}>
+                {busy ? "처리 중…" : "승인 요청 + 정산 →"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
