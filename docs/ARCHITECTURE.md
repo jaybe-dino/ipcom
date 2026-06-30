@@ -38,8 +38,8 @@ PRD(첨부 상세 기획안)를 코드로 옮긴 현재 구현 상태와, 앱/�
 | License Ledger | `@remix-hub/core/ledger` | append-only 해시 체인 + 무결성 검증 |
 | Settlement & Billing | `RemixService.payAndSettle` + `distribute()` | PG 연동은 후속 |
 | Marketplace | (P2) | 템플릿/판매 카탈로그 |
-| Watermark/Provenance | `Creation.provenance`, `visible_label` | 실제 워터마크 삽입은 후속 |
-| Asset Storage/CDN | 에셋 참조 문자열 | 실저장소 연동은 후속 |
+| Watermark/Provenance | 라이선스 매니페스트(가시 AI 표시 + 출처 + 해시 봉인) | ✅ 반출 시 발급/검증, 픽셀 워터마크는 후속 |
+| Asset Storage/CDN | `AssetStore`(메모리) + 내부/반출 스코프 분리 | ✅ 추상화 완료, S3/CDN 연동은 후속 |
 
 ## 3. 데이터 모델 & 저장소
 

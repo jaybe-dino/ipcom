@@ -124,6 +124,8 @@ export function createApi(cfg: ClientConfig) {
         export: ExportRequest;
         distribution: { owner: number; creator: number; platform: number };
       }>(`/exports/${exportId}/pay`, { method: "POST" }),
+    getLicense: (exportId: string) =>
+      req<{ license: Record<string, unknown> }>(`/exports/${exportId}/license`),
     getConsent: (ipId: string) =>
       req<{ ip_id: string; policy: ConsentPolicy }>(`/ip/${ipId}/consent`),
     getLedger: () =>

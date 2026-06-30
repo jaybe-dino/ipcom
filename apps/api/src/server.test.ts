@@ -126,4 +126,29 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     const res = await app.inject({ method: "GET", url: "/ledger" });
     expect(res.json().integrity_ok).toBe(true);
   });
+
+  it("issues a sealed license manifest with a visible AI label on settlement", async () => {
+    const gen = await app.inject({
+      method: "POST",
+      url: "/spaces/space_artist_g/generations",
+      headers: bearer(creatorToken),
+      payload: { action: "image", prompt: "license check" },
+    });
+    const creationId = gen.json().creation.creation_id;
+    const exp = await app.inject({
+      method: "POST",
+      url: `/generations/${creationId}/export`,
+      headers: bearer(creatorToken),
+      payload: { use_type: "personal" }, // auto-approved
+    });
+    const exportId = exp.json().export.export_id;
+    await app.inject({ method: "POST", url: `/exports/${exportId}/pay`, headers: bearer(creatorToken) });
+
+    const lic = await app.inject({ method: "GET", url: `/exports/${exportId}/license` });
+    expect(lic.statusCode).toBe(200);
+    const manifest = lic.json().license;
+    expect(manifest.ai_label.visible).toBe(true);
+    expect(manifest.manifest_hash).toHaveLength(64);
+    expect(manifest.settlement.distribution.platform).toBeGreaterThan(0);
+  });
 });

@@ -50,3 +50,11 @@ export {
   type NewEntryInput,
 } from "./ledger/ledger.js";
 export { sha256Hex } from "./ledger/sha256.js";
+
+// Provenance / Watermark
+export {
+  buildLicenseManifest,
+  verifyManifest,
+  type LicenseManifest,
+  type ManifestInput,
+} from "./provenance/manifest.js";

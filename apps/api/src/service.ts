@@ -1,4 +1,5 @@
 import {
+  buildLicenseManifest,
   canGenerate,
   distribute,
   exportDecision,
@@ -8,6 +9,7 @@ import {
   type ExportRequest,
   type UseType,
 } from "@remix-hub/core";
+import { MemoryAssetStore, type AssetStore } from "./assets/store.js";
 import { newId, now } from "./ids.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import type { EventBus } from "./realtime/bus.js";
@@ -23,6 +25,7 @@ export class RemixService {
     private readonly repo: Repo,
     private readonly gateway: PluginGateway = PluginGateway.fromEnv(),
     private readonly bus?: EventBus,
+    private readonly assets: AssetStore = new MemoryAssetStore(),
   ) {}
 
   /** PRD §2.2 + G1: submit a generation job, then dispatch to the Plugin Gateway. */
@@ -219,9 +222,32 @@ export class RemixService {
     }
 
     const distribution = distribute(exportReq.fee_amount, exportReq.split_snapshot);
-    exportReq.license_doc = newId("lic");
-    await this.repo.saveExport(exportReq);
     const creation = await this.repo.getCreation(exportReq.creation_id);
+    const ip = creation ? await this.repo.getIp(creation.ip_id) : null;
+
+    // Build the sealed license manifest (visible AI label + provenance + split)
+    // and store it as an export-scoped asset — this IS the license proof.
+    const manifest = buildLicenseManifest({
+      export_id: exportReq.export_id,
+      creation_id: exportReq.creation_id,
+      ip_id: ip?.ip_id ?? creation?.ip_id ?? "unknown",
+      ip_name: ip?.name ?? "unknown",
+      creator_id: creation?.creator_id ?? exportReq.requester_id,
+      use_type: exportReq.use_type,
+      plugin_id: creation?.plugin_id ?? "unknown",
+      model: creation?.provenance?.model_info.model,
+      prompt: creation?.provenance?.prompt ?? "",
+      fee_amount: exportReq.fee_amount,
+      distribution,
+      issued_at: now(),
+    });
+    exportReq.license_doc = await this.assets.put({
+      scope: "export",
+      content_type: "application/vnd.remixhub.license+json",
+      data: manifest,
+    });
+    await this.repo.saveExport(exportReq);
+
     if (creation) {
       creation.status = "exported";
       await this.repo.saveCreation(creation);
@@ -233,6 +259,7 @@ export class RemixService {
       payload: {
         export_id: exportReq.export_id,
         license_doc: exportReq.license_doc,
+        manifest_hash: manifest.manifest_hash,
         fee_amount: exportReq.fee_amount,
         distribution,
       },

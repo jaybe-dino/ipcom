@@ -4,6 +4,7 @@ import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
+import { MemoryAssetStore } from "./assets/store.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import { EventBus } from "./realtime/bus.js";
 import { registerRealtime } from "./realtime/ws.js";
@@ -20,7 +21,8 @@ import { RemixService } from "./service.js";
 export function buildServer(repo: Repo = new MemoryRepo()) {
   const bus = new EventBus();
   const gateway = PluginGateway.fromEnv();
-  const service = new RemixService(repo, gateway, bus);
+  const assets = new MemoryAssetStore();
+  const service = new RemixService(repo, gateway, bus, assets);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
@@ -139,6 +141,32 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   });
 
   app.get("/exports", async () => ({ exports: await repo.listExports() }));
+
+  // License manifest for an export (the AI-label + provenance proof).
+  app.get("/exports/:id/license", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const exportReq = await repo.getExport(id);
+    if (!exportReq?.license_doc) return reply.code(404).send({ error: "license_not_issued" });
+    const asset = await assets.get(exportReq.license_doc);
+    if (!asset) return reply.code(404).send({ error: "license_not_found" });
+    return { license: asset.data };
+  });
+
+  // Asset access: export-scoped assets (license proofs) are public; internal
+  // assets require authentication (NFR: 자산 접근권 분리).
+  app.get("/assets/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const asset = await assets.get(id);
+    if (!asset) return reply.code(404).send({ error: "asset_not_found" });
+    if (asset.scope === "internal") {
+      try {
+        await req.jwtVerify();
+      } catch {
+        return reply.code(401).send({ error: "unauthorized" });
+      }
+    }
+    return { asset };
+  });
 
   // --- Consent Matrix ---
   app.get("/ip/:id/consent", async (req, reply) => {
