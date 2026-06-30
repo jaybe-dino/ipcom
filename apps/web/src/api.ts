@@ -74,7 +74,10 @@ export const api = {
   getSpace: (id: string) => req<{ space: Space; ip: IP; channels: Channel[] }>(`/spaces/${id}`),
   getChannelPosts: (id: string) =>
     req<{ posts: Post[]; creations: Creation[] }>(`/channels/${id}/posts`),
-  generate: (spaceId: string, body: { action: Creation["action"]; prompt: string }) =>
+  generate: (
+    spaceId: string,
+    body: { action: Creation["action"]; prompt: string; channel_id?: string },
+  ) =>
     req<{ creation: Creation }>(`/spaces/${spaceId}/generations`, {
       method: "POST",
       body: JSON.stringify(body),

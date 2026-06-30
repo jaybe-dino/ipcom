@@ -4,6 +4,8 @@ import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
+import { EventBus } from "./realtime/bus.js";
+import { registerRealtime } from "./realtime/ws.js";
 import { MemoryRepo, createRepo, type Repo } from "./repo/index.js";
 import { RemixService } from "./service.js";
 
@@ -15,11 +17,13 @@ import { RemixService } from "./service.js";
  * The storage engine is injected as a `Repo` (memory / Postgres).
  */
 export function buildServer(repo: Repo = new MemoryRepo()) {
-  const service = new RemixService(repo);
+  const bus = new EventBus();
+  const service = new RemixService(repo, undefined, bus);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
   registerAuth(app, repo);
+  registerRealtime(app, bus);
 
   const uid = (req: { authUser?: { sub: string } }): string => req.authUser!.sub;
   const auth = () => ({ preHandler: [app.authenticate] });
@@ -58,6 +62,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
         plugin_id?: string;
         source_assets?: string[];
         moderation_scores?: Record<string, number>;
+        channel_id?: string;
       };
       const result = await service.submitGeneration({
         spaceId: id,
@@ -67,6 +72,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
         pluginId: body.plugin_id,
         sourceAssets: body.source_assets,
         moderationScores: body.moderation_scores,
+        channelId: body.channel_id,
       });
       if (!result.ok) return reply.code(result.status).send({ error: result.reason });
       return reply.code(201).send({ creation: result.creation });

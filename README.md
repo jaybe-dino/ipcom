@@ -83,6 +83,13 @@ pnpm build       # 전체 빌드
 - 라이선스 원장은 해시 무결성을 위해 timestamp를 텍스트로 원형 저장 → DB를 거쳐도 체인 검증 통과(PGlite 통합 테스트로 보장).
 - 마이그레이션 파일 생성: `pnpm --filter @remix-hub/api db:generate` (drizzle-kit).
 
+### 실시간 채널 (WebSocket)
+
+- `GET /ws/channels/:id?token=<jwt>` — 채널 단위 실시간 구독(브라우저 WS 제약상 토큰은 쿼리 파라미터)
+- 채널에서 생성(`channel_id` 포함)하면 서버가 Post를 만들고 구독자에게 `post.created` 이벤트를 브로드캐스트
+- 인메모리 EventBus(단일 노드). 다중 노드 확장 시 동일 인터페이스로 Redis pub/sub 교체
+- 웹: 활성 채널에 자동 구독 → 다른 사용자의 생성물이 피드에 실시간 등장(생성물 ID로 중복 제거)
+
 ---
 
 ## 3단계 권리 게이트 (Rights Engine)

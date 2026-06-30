@@ -1,6 +1,7 @@
 import type { Channel, Creation, CreativeAction, Post } from "@remix-hub/core";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api.js";
+import { subscribeChannel } from "../realtime.js";
 import { useAsync } from "../useAsync.js";
 import { useSession } from "../useSession.js";
 
@@ -40,14 +41,32 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
     void loadFeed(activeChannel);
   }, [activeChannel]);
 
+  /** Append a post unless one for the same creation already exists (dedupe live echo). */
+  function upsertPost(post: Post, creation?: Creation) {
+    if (creation) setCreations((c) => ({ ...c, [creation.creation_id]: creation }));
+    setPosts((p) => {
+      if (post.creation_id && p.some((x) => x.creation_id === post.creation_id)) return p;
+      return [...p, post];
+    });
+  }
+
+  // Subscribe to live channel events; other users' generations appear in real time.
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeChannel(activeChannel, (e) => {
+      if (e.type === "post.created") {
+        upsertPost(e.post as Post, e.creation as Creation);
+      }
+    });
+    return unsub;
+  }, [activeChannel, user]);
+
   async function generate() {
     setBusy(true);
     setMsg(null);
     try {
-      const { creation } = await api.generate(SPACE_ID, { action, prompt });
-      setCreations((c) => ({ ...c, [creation.creation_id]: creation }));
-      setPosts((p) => [
-        ...p,
+      const { creation } = await api.generate(SPACE_ID, { action, prompt, channel_id: activeChannel });
+      upsertPost(
         {
           post_id: `local_${creation.creation_id}`,
           channel_id: activeChannel,
@@ -56,8 +75,9 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
           creation_id: creation.creation_id,
           created_at: creation.created_at,
         },
-      ]);
-      setMsg({ kind: "ok", text: "생성 완료 — 출처 IP·라이선스·AI 표시 메타데이터가 부착되었습니다." });
+        creation,
+      );
+      setMsg({ kind: "ok", text: "생성 완료 — 출처 IP·라이선스·AI 표시 메타데이터가 부착되었습니다. (실시간 브로드캐스트)" });
     } catch (e) {
       const reason = e instanceof ApiError ? e.message : "unknown";
       setMsg({

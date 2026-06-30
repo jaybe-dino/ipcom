@@ -10,6 +10,7 @@ import {
 } from "@remix-hub/core";
 import { newId, now } from "./ids.js";
 import { PluginGateway } from "./plugins/gateway.js";
+import type { EventBus } from "./realtime/bus.js";
 import type { Repo } from "./repo/types.js";
 
 /**
@@ -21,6 +22,7 @@ export class RemixService {
   constructor(
     private readonly repo: Repo,
     private readonly gateway: PluginGateway = PluginGateway.fromEnv(),
+    private readonly bus?: EventBus,
   ) {}
 
   /** PRD §2.2 + G1: submit a generation job, then dispatch to the Plugin Gateway. */
@@ -32,6 +34,8 @@ export class RemixService {
     pluginId?: string;
     sourceAssets?: string[];
     moderationScores?: Record<string, number>;
+    /** When set, a Post is created in this channel and broadcast in real time. */
+    channelId?: string;
   }): Promise<{ ok: true; creation: Creation } | { ok: false; status: number; reason: string }> {
     const ctx = await this.repo.spaceWithIp(params.spaceId);
     if (!ctx) return { ok: false, status: 404, reason: "space_not_found" };
@@ -81,6 +85,20 @@ export class RemixService {
       actor: params.creatorId,
       payload: { result: "generated", creation_id: creation.creation_id, ip_id: ctx.ip.ip_id, action: params.action },
     });
+
+    // Post into the channel + broadcast to live subscribers (PRD: 실시간 채널).
+    if (params.channelId) {
+      const post = {
+        post_id: newId("post"),
+        channel_id: params.channelId,
+        author_id: params.creatorId,
+        text: params.prompt,
+        creation_id: creation.creation_id,
+        created_at: now(),
+      };
+      await this.repo.createPost(post);
+      this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, creation });
+    }
 
     return { ok: true, creation };
   }
