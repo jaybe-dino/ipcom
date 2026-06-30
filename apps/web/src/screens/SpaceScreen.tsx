@@ -2,6 +2,7 @@ import type { Channel, Creation, CreativeAction, Post } from "@remix-hub/core";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api.js";
 import { useAsync } from "../useAsync.js";
+import { useSession } from "../useSession.js";
 
 const SPACE_ID = "space_artist_g";
 
@@ -14,6 +15,7 @@ const PLUGINS: { action: CreativeAction; label: string }[] = [
 ];
 
 export function SpaceScreen({ onExport }: { onExport: (creationId: string) => void }) {
+  const user = useSession();
   const space = useAsync(() => api.getSpace(SPACE_ID), []);
   const [activeChannel, setActiveChannel] = useState<string>("ch_image_remix");
   const [action, setAction] = useState<CreativeAction>("image");
@@ -177,10 +179,11 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
             <div className="inputrow">
               <span>✏️</span>
               <input value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-              <button className="gen" onClick={generate} disabled={busy}>
+              <button className="gen" onClick={generate} disabled={busy || !user}>
                 {busy ? "생성 중…" : "생성 ✨"}
               </button>
             </div>
+            {!user && <div className="banner err">생성하려면 상단에서 데모 로그인하세요.</div>}
             {msg && <div className={`banner ${msg.kind}`}>{msg.text}</div>}
             <div className="hint">
               🔒 생성물은 자동으로 출처 IP·라이선스·AI 표시 메타데이터가 부착됩니다. 금지 맥락(성적·허위·협박)은

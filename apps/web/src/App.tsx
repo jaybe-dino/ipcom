@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AuthBar } from "./components/AuthBar.js";
 import { ConsentScreen } from "./screens/ConsentScreen.js";
 import { GateScreen } from "./screens/GateScreen.js";
 import { HomeScreen } from "./screens/HomeScreen.js";
@@ -37,6 +38,7 @@ export function App() {
             <div className="tag">IP × AI 2차창작 커뮤니티</div>
           </div>
         </div>
+        <AuthBar />
       </div>
 
       <div className="nav">

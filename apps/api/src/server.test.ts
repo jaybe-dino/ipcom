@@ -1,18 +1,61 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildServer } from "./server.js";
 
-describe("REMIX HUB API — generation → export → settle pipeline", () => {
+describe("REMIX HUB API — auth + generation → export → settle pipeline", () => {
   let app: ReturnType<typeof buildServer>;
+  let creatorToken: string;
+  let ownerToken: string;
+
+  const bearer = (t: string) => ({ authorization: `Bearer ${t}` });
 
   beforeAll(async () => {
     app = buildServer();
     await app.ready();
+    const login = async (email: string) => {
+      const res = await app.inject({
+        method: "POST",
+        url: "/auth/login",
+        payload: { email, password: "password" },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json().token as string;
+    };
+    creatorToken = await login("minji@remixhub.dev");
+    ownerToken = await login("owner@remixhub.dev");
   });
   afterAll(async () => {
     await app.close();
   });
 
-  it("lists the seeded space", async () => {
+  it("rejects login with a bad password", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: { email: "minji@remixhub.dev", password: "nope" },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("requires a token to generate (401)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/spaces/space_artist_g/generations",
+      payload: { action: "image", prompt: "x" },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("forbids a creator from approving an export (RBAC 403)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/exports/whatever/approve",
+      headers: bearer(creatorToken),
+      payload: { approve: true },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("lists the seeded space (public)", async () => {
     const res = await app.inject({ method: "GET", url: "/spaces" });
     expect(res.statusCode).toBe(200);
     expect(res.json().spaces).toHaveLength(1);
@@ -22,6 +65,7 @@ describe("REMIX HUB API — generation → export → settle pipeline", () => {
     const res = await app.inject({
       method: "POST",
       url: "/spaces/space_artist_g/generations",
+      headers: bearer(creatorToken),
       payload: { action: "image", prompt: "성적 nsfw deepfake" },
     });
     expect(res.statusCode).toBe(403);
@@ -32,6 +76,7 @@ describe("REMIX HUB API — generation → export → settle pipeline", () => {
     const res = await app.inject({
       method: "POST",
       url: "/spaces/space_artist_g/generations",
+      headers: bearer(creatorToken),
       payload: { action: "voice", prompt: "calm narration" },
     });
     expect(res.statusCode).toBe(403);
@@ -42,7 +87,7 @@ describe("REMIX HUB API — generation → export → settle pipeline", () => {
     const gen = await app.inject({
       method: "POST",
       url: "/spaces/space_artist_g/generations",
-      headers: { "x-user-id": "user_minji" },
+      headers: bearer(creatorToken),
       payload: { action: "image", prompt: "아티스트 G, neon rain street, cinematic" },
     });
     expect(gen.statusCode).toBe(201);
@@ -51,7 +96,7 @@ describe("REMIX HUB API — generation → export → settle pipeline", () => {
     const exp = await app.inject({
       method: "POST",
       url: `/generations/${creationId}/export`,
-      headers: { "x-user-id": "user_minji" },
+      headers: bearer(creatorToken),
       payload: { use_type: "commercial" },
     });
     expect(exp.statusCode).toBe(201);
@@ -62,7 +107,7 @@ describe("REMIX HUB API — generation → export → settle pipeline", () => {
     const approve = await app.inject({
       method: "POST",
       url: `/exports/${exportObj.export_id}/approve`,
-      headers: { "x-user-id": "user_owner_g" },
+      headers: bearer(ownerToken),
       payload: { approve: true },
     });
     expect(approve.statusCode).toBe(200);
@@ -71,7 +116,7 @@ describe("REMIX HUB API — generation → export → settle pipeline", () => {
     const pay = await app.inject({
       method: "POST",
       url: `/exports/${exportObj.export_id}/pay`,
-      headers: { "x-user-id": "user_owner_g" },
+      headers: bearer(ownerToken),
     });
     expect(pay.statusCode).toBe(200);
     expect(pay.json().distribution).toEqual({ owner: 300_000, creator: 125_000, platform: 75_000 });

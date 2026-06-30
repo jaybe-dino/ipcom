@@ -62,6 +62,13 @@ pnpm typecheck   # 전체 타입 검사
 pnpm build       # 전체 빌드
 ```
 
+### 인증 (JWT + RBAC)
+
+- `POST /auth/register`, `POST /auth/login` → `{ token, user }` (JWT, 12h)
+- 보호된 변경 라우트는 `Authorization: Bearer <token>` 필요, 소유자 전용 작업은 `OWNER` 역할 RBAC
+- 비밀번호는 scrypt 해시(Node 내장, 외부 의존성 0), 시크릿은 `JWT_SECRET` 환경변수
+- **데모 계정** (개발 시드): `minji@remixhub.dev`(크리에이터) / `owner@remixhub.dev`(IP 소유자), 둘 다 비밀번호 `password`. 웹 상단 바에서 원클릭 로그인.
+
 ---
 
 ## 3단계 권리 게이트 (Rights Engine)

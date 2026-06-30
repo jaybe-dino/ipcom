@@ -18,6 +18,10 @@ import { now } from "./ids.js";
  */
 export class Store {
   users = new Map<string, User>();
+  /** email → user_id index for login. */
+  usersByEmail = new Map<string, string>();
+  /** user_id → password hash (scrypt). */
+  credentials = new Map<string, string>();
   ips = new Map<string, IP>();
   spaces = new Map<string, Space>();
   channels = new Map<string, Channel>();
@@ -49,6 +53,8 @@ export class Store {
     };
     this.users.set(owner.user_id, owner);
     this.users.set(creator.user_id, creator);
+    this.usersByEmail.set("owner@remixhub.dev", owner.user_id);
+    this.usersByEmail.set("minji@remixhub.dev", creator.user_id);
 
     const ip: IP = {
       ip_id: "ip_artist_g",
