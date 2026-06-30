@@ -35,8 +35,17 @@ fly deploy               # https://<app>.fly.dev
 
 ## 옵션 D — Railway
 
-New Project → Deploy from Repo → Railway가 Dockerfile 자동 감지 → 변수 `JWT_SECRET` 추가 →
-생성된 도메인으로 접속.
+1. <https://railway.app> → **New Project → Deploy from GitHub repo** → `jaybe-dino/ipcom` 선택
+   (브랜치 `claude/service-dev-planning-e8eqsf`)
+2. 루트의 `railway.json` + `Dockerfile`을 자동 인식해 빌드합니다
+3. **Variables**에 `JWT_SECRET` 추가 (`openssl rand -hex 32` 값). `PORT`는 Railway가 자동 주입
+   → 서버가 그대로 사용합니다
+4. **Settings → Networking → Generate Domain** → `https://<app>.up.railway.app` 공개 URL
+5. (영속화 원하면) Railway에서 **Postgres** 추가 → 제공되는 `DATABASE_URL`을 서비스 변수에 연결
+
+> 어느 호스트든 동일: 이 저장소는 표준 `Dockerfile` 하나로 동작하므로 Render·Railway·Fly·Koyeb·
+> Google Cloud Run·자체 서버 등 Docker를 받는 곳이면 모두 같은 방식으로 배포됩니다. 서버는
+> `PORT` 환경변수를 따르고 `0.0.0.0`에 바인딩하며 `/health` 헬스체크를 제공합니다.
 
 ---
 
