@@ -37,7 +37,7 @@ PRD(첨부 상세 기획안)를 코드로 옮긴 현재 구현 상태와, 앱/�
 | Moderation | `@remix-hub/core/moderation` | 키워드 스텁 → 실모델 드롭인 |
 | License Ledger | `@remix-hub/core/ledger` | append-only 해시 체인 + 무결성 검증 |
 | Settlement & Billing | `RemixService.payAndSettle` + `distribute()` | PG 연동은 후속 |
-| Marketplace | (P2) | 템플릿/판매 카탈로그 |
+| Marketplace | `MarketService` + 라우트 + 웹 화면 | ✅ 리스팅·템플릿·주문·라이선스·take rate |
 | Watermark/Provenance | 라이선스 매니페스트(가시 AI 표시 + 출처 + 해시 봉인) | ✅ 반출 시 발급/검증, 픽셀 워터마크는 후속 |
 | Asset Storage/CDN | `AssetStore`(메모리) + 내부/반출 스코프 분리 | ✅ 추상화 완료, S3/CDN 연동은 후속 |
 

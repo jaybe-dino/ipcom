@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
 import { MemoryAssetStore } from "./assets/store.js";
+import { MarketService } from "./market.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import { EventBus } from "./realtime/bus.js";
 import { registerRealtime } from "./realtime/ws.js";
@@ -23,6 +24,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const gateway = PluginGateway.fromEnv();
   const assets = new MemoryAssetStore();
   const service = new RemixService(repo, gateway, bus, assets);
+  const market = new MarketService(repo, assets);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
@@ -191,6 +193,49 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
       return { ip_id: ip.ip_id, policy };
     },
   );
+
+  // --- Marketplace (P2) ---
+  app.get("/market/listings", async () => market.catalog());
+
+  app.post("/market/templates", auth(), async (req) => {
+    const body = req.body as { title: string; body: string; ip_id?: string };
+    const template = await market.createTemplate({
+      authorId: uid(req),
+      title: body.title,
+      body: body.body,
+      ipId: body.ip_id,
+    });
+    return { template };
+  });
+
+  app.post("/market/listings", auth(), async (req, reply) => {
+    const body = req.body as {
+      kind: "creation" | "template";
+      ref_id: string;
+      title: string;
+      price: number;
+      currency?: "KRW" | "USD" | "JPY" | "EUR";
+    };
+    const result = await market.createListing({
+      sellerId: uid(req),
+      kind: body.kind,
+      refId: body.ref_id,
+      title: body.title,
+      price: body.price,
+      currency: body.currency,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ listing: result.value });
+  });
+
+  app.post("/market/listings/:id/buy", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const result = await market.purchase(id, uid(req));
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ order: result.value });
+  });
+
+  app.get("/market/orders", async () => ({ orders: await repo.listOrders() }));
 
   // --- License Ledger ---
   app.get("/ledger", async () => ({

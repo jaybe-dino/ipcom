@@ -103,6 +103,42 @@ export const ledgerEntries = pgTable("ledger_entries", {
   timestamp: text("timestamp").notNull(),
 });
 
+export const promptTemplates = pgTable("prompt_templates", {
+  template_id: text("template_id").primaryKey(),
+  author_id: text("author_id").notNull(),
+  ip_id: text("ip_id"),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
+export const listings = pgTable("listings", {
+  listing_id: text("listing_id").primaryKey(),
+  kind: text("kind").$type<"creation" | "template">().notNull(),
+  seller_id: text("seller_id").notNull(),
+  ref_id: text("ref_id").notNull(),
+  ip_id: text("ip_id"),
+  title: text("title").notNull(),
+  price: bigint("price", { mode: "number" }).notNull(),
+  currency: text("currency").$type<"KRW" | "USD" | "JPY" | "EUR">().notNull(),
+  active: boolean("active").notNull().default(true),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
+export const orders = pgTable("orders", {
+  order_id: text("order_id").primaryKey(),
+  listing_id: text("listing_id").notNull(),
+  buyer_id: text("buyer_id").notNull(),
+  seller_id: text("seller_id").notNull(),
+  amount: bigint("amount", { mode: "number" }).notNull(),
+  distribution: jsonb("distribution")
+    .$type<{ owner: number; creator: number; platform: number }>()
+    .notNull(),
+  license_doc: text("license_doc"),
+  status: text("status").$type<"paid" | "refunded">().notNull(),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
 export const schema = {
   users,
   ips,
@@ -112,4 +148,7 @@ export const schema = {
   creations,
   exportRequests,
   ledgerEntries,
+  promptTemplates,
+  listings,
+  orders,
 };

@@ -5,7 +5,10 @@ import type {
   ExportRequest,
   IP,
   LedgerEntry,
+  Listing,
+  Order,
   Post,
+  PromptTemplate,
   Space,
   User,
   UseType,
@@ -52,7 +55,9 @@ export function createApi(cfg: ClientConfig) {
     const res = await doFetch(`${baseUrl}${path}`, {
       ...rest,
       headers: {
-        "Content-Type": "application/json",
+        // Only declare a JSON content-type when a body is actually sent —
+        // otherwise strict servers (Fastify) reject the empty body.
+        ...(rest.body ? { "Content-Type": "application/json" } : {}),
         ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
         ...(rest.headers ?? {}),
       },
@@ -126,6 +131,24 @@ export function createApi(cfg: ClientConfig) {
       }>(`/exports/${exportId}/pay`, { method: "POST" }),
     getLicense: (exportId: string) =>
       req<{ license: Record<string, unknown> }>(`/exports/${exportId}/license`),
+
+    // Marketplace
+    marketCatalog: () => req<{ listings: Listing[]; templates: PromptTemplate[] }>("/market/listings"),
+    createTemplate: (body: { title: string; body: string; ip_id?: string }) =>
+      req<{ template: PromptTemplate }>("/market/templates", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    createListing: (body: {
+      kind: "creation" | "template";
+      ref_id: string;
+      title: string;
+      price: number;
+    }) =>
+      req<{ listing: Listing }>("/market/listings", { method: "POST", body: JSON.stringify(body) }),
+    buyListing: (listingId: string) =>
+      req<{ order: Order }>(`/market/listings/${listingId}/buy`, { method: "POST" }),
+    listOrders: () => req<{ orders: Order[] }>("/market/orders"),
     getConsent: (ipId: string) =>
       req<{ ip_id: string; policy: ConsentPolicy }>(`/ip/${ipId}/consent`),
     getLedger: () =>

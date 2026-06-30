@@ -6,7 +6,10 @@ import {
   type ExportRequest,
   type IP,
   type LedgerEntry,
+  type Listing,
+  type Order,
   type Post,
+  type PromptTemplate,
   type Space,
   type User,
 } from "@remix-hub/core";
@@ -25,6 +28,9 @@ export class MemoryRepo implements Repo {
   private posts = new Map<string, Post>();
   private creations = new Map<string, Creation>();
   private exports = new Map<string, ExportRequest>();
+  private listings = new Map<string, Listing>();
+  private templates = new Map<string, PromptTemplate>();
+  private orders = new Map<string, Order>();
   private ledger = new LicenseLedger();
 
   constructor(seed = true) {
@@ -130,5 +136,30 @@ export class MemoryRepo implements Repo {
     const ip = this.ips.get(space.ip_id);
     if (!ip) return null;
     return { space, ip };
+  }
+
+  async listListings() {
+    return [...this.listings.values()];
+  }
+  async getListing(id: string) {
+    return this.listings.get(id) ?? null;
+  }
+  async saveListing(listing: Listing) {
+    this.listings.set(listing.listing_id, listing);
+  }
+  async listTemplates() {
+    return [...this.templates.values()];
+  }
+  async getTemplate(id: string) {
+    return this.templates.get(id) ?? null;
+  }
+  async saveTemplate(template: PromptTemplate) {
+    this.templates.set(template.template_id, template);
+  }
+  async listOrders() {
+    return [...this.orders.values()];
+  }
+  async saveOrder(order: Order) {
+    this.orders.set(order.order_id, order);
   }
 }

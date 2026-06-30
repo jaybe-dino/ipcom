@@ -6,7 +6,10 @@ import type {
   IP,
   LedgerEntry,
   LedgerEventType,
+  Listing,
+  Order,
   Post,
+  PromptTemplate,
   Space,
   User,
 } from "@remix-hub/core";
@@ -58,4 +61,14 @@ export interface Repo {
 
   /** Convenience: a space plus its backing IP. */
   spaceWithIp(spaceId: string): Promise<{ space: Space; ip: IP } | null>;
+
+  // Marketplace
+  listListings(): Promise<Listing[]>;
+  getListing(id: string): Promise<Listing | null>;
+  saveListing(listing: Listing): Promise<void>;
+  listTemplates(): Promise<PromptTemplate[]>;
+  getTemplate(id: string): Promise<PromptTemplate | null>;
+  saveTemplate(template: PromptTemplate): Promise<void>;
+  listOrders(): Promise<Order[]>;
+  saveOrder(order: Order): Promise<void>;
 }

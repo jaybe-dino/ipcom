@@ -8,7 +8,10 @@ import {
   type ExportRequest,
   type IP,
   type LedgerEntry,
+  type Listing,
+  type Order,
   type Post,
+  type PromptTemplate,
   type Space,
   type User,
 } from "@remix-hub/core";
@@ -23,7 +26,10 @@ import {
   exportRequests,
   ips,
   ledgerEntries,
+  listings,
+  orders,
   posts,
+  promptTemplates,
   schema,
   spaces,
   users,
@@ -75,6 +81,20 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       entry_id text PRIMARY KEY, index integer NOT NULL, event_type text NOT NULL,
       actor text NOT NULL, payload jsonb NOT NULL, payload_hash text NOT NULL,
       prev_hash text NOT NULL, timestamp text NOT NULL
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS prompt_templates (
+      template_id text PRIMARY KEY, author_id text NOT NULL, ip_id text,
+      title text NOT NULL, body text NOT NULL, created_at timestamptz NOT NULL
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS listings (
+      listing_id text PRIMARY KEY, kind text NOT NULL, seller_id text NOT NULL,
+      ref_id text NOT NULL, ip_id text, title text NOT NULL, price bigint NOT NULL,
+      currency text NOT NULL, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS orders (
+      order_id text PRIMARY KEY, listing_id text NOT NULL, buyer_id text NOT NULL,
+      seller_id text NOT NULL, amount bigint NOT NULL, distribution jsonb NOT NULL,
+      license_doc text, status text NOT NULL, created_at timestamptz NOT NULL
     )`,
   ];
   for (const stmt of statements) await db.execute(stmt);
@@ -283,5 +303,45 @@ export class DrizzleRepo implements Repo {
     const ip = await this.getIp(space.ip_id);
     if (!ip) return null;
     return { space, ip };
+  }
+
+  async listListings(): Promise<Listing[]> {
+    return (await this.db.select().from(listings)).map((l) => ({ ...l, ip_id: l.ip_id }));
+  }
+  async getListing(id: string): Promise<Listing | null> {
+    const r = await this.db.select().from(listings).where(eq(listings.listing_id, id)).limit(1);
+    return r[0] ?? null;
+  }
+  async saveListing(listing: Listing) {
+    await this.db
+      .insert(listings)
+      .values(listing)
+      .onConflictDoUpdate({ target: listings.listing_id, set: listing });
+  }
+  async listTemplates(): Promise<PromptTemplate[]> {
+    return this.db.select().from(promptTemplates);
+  }
+  async getTemplate(id: string): Promise<PromptTemplate | null> {
+    const r = await this.db
+      .select()
+      .from(promptTemplates)
+      .where(eq(promptTemplates.template_id, id))
+      .limit(1);
+    return r[0] ?? null;
+  }
+  async saveTemplate(template: PromptTemplate) {
+    await this.db
+      .insert(promptTemplates)
+      .values(template)
+      .onConflictDoUpdate({ target: promptTemplates.template_id, set: template });
+  }
+  async listOrders(): Promise<Order[]> {
+    return this.db.select().from(orders);
+  }
+  async saveOrder(order: Order) {
+    await this.db
+      .insert(orders)
+      .values(order)
+      .onConflictDoUpdate({ target: orders.order_id, set: order });
   }
 }

@@ -171,7 +171,25 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
                           </div>
                         </div>
                         <div className="cact">
-                          <button className="btn gho">리믹스</button>
+                          <button
+                            className="btn gho"
+                            disabled={!user}
+                            onClick={async () => {
+                              try {
+                                await api.createListing({
+                                  kind: "creation",
+                                  ref_id: cr.creation_id,
+                                  title: cr.creation_id,
+                                  price: 100_000,
+                                });
+                                setMsg({ kind: "ok", text: "마켓에 ₩100,000으로 판매 등록했습니다 (⑥ 마켓플레이스)." });
+                              } catch (e) {
+                                setMsg({ kind: "err", text: `판매 등록 실패: ${(e as Error).message}` });
+                              }
+                            }}
+                          >
+                            판매 등록
+                          </button>
                           <button className="btn pri" onClick={() => onExport(cr.creation_id)}>
                             외부 반출 →
                           </button>

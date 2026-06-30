@@ -101,6 +101,13 @@ pnpm build       # 전체 빌드
 - 인메모리 EventBus(단일 노드). 다중 노드 확장 시 동일 인터페이스로 Redis pub/sub 교체
 - 웹: 활성 채널에 자동 구독 → 다른 사용자의 생성물이 피드에 실시간 등장(생성물 ID로 중복 제거)
 
+### 마켓플레이스 (P2)
+
+- 반출 가능한 작품·프롬프트 템플릿 카탈로그, 주문, 라이선스 자동 발급, take rate
+- `GET /market/listings`, `POST /market/listings`, `POST /market/templates`, `POST /market/listings/:id/buy`, `GET /market/orders`
+- 작품 판매는 IP의 `sale` 분배율, 템플릿은 플랫폼 take rate(기본 20%) 적용 → 구매 시 라이선스 매니페스트 발급 + 원장 기록
+- 웹 ⑥ 마켓플레이스 화면에서 판매 등록·구매
+
 ---
 
 ## 3단계 권리 게이트 (Rights Engine)

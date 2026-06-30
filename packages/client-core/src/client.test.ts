@@ -43,6 +43,18 @@ describe("createApi", () => {
     expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer abc" });
   });
 
+  it("omits Content-Type on bodyless POSTs (avoids empty-JSON-body 400)", async () => {
+    const session = new Session();
+    session.set({ token: "t", user: { user_id: "u", role: "OWNER", kyc_status: "verified", age_verified: true } });
+    const fetchImpl = vi.fn(async () => jsonResponse({ order: {} }));
+    const api = createApi({ session, baseUrl: "http://x", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await api.buyListing("lst_1");
+    const init = fetchImpl.mock.calls[0]![1] as RequestInit;
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBeUndefined();
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer t");
+  });
+
   it("login stores the session; errors surface as ApiError", async () => {
     const session = new Session();
     const fetchImpl = vi
