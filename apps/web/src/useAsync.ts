@@ -25,4 +25,4 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): AsyncSt
   return state;
 }
 
-export const krw = (n: number): string => `₩${n.toLocaleString("ko-KR")}`;
+export { krw } from "@remix-hub/client-core";

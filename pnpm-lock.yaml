@@ -63,6 +63,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@remix-hub/client-core':
+        specifier: workspace:*
+        version: link:../../packages/client-core
       '@remix-hub/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -88,6 +91,19 @@ importers:
       vite:
         specifier: ^6.0.5
         version: 6.4.3(@types/node@22.20.0)(tsx@4.22.4)
+
+  packages/client-core:
+    dependencies:
+      '@remix-hub/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)
 
   packages/core:
     devDependencies:

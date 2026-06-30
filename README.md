@@ -16,18 +16,29 @@ IP 소유자가 허용한 "놀이터" 안에서 팬·크리에이터가 AI 플�
 ```
 remix-hub/
 ├── packages/
-│   └── core/          @remix-hub/core — 플랫폼 비종속 도메인 (웹/앱/데스크탑/서버 공용)
-│       ├── types/       User, IP/ConsentPolicy, Space/Channel/Post, Creation, Export/License, Ledger
-│       ├── consent/     Consent Matrix (허용 행위·금지선·반출 정책·분배율)
-│       ├── moderation/  Hard Limit 사전 검사
-│       ├── rights/      Rights Engine — G1/G2/G3 게이트 + 가격·분배 계산
-│       └── ledger/      License Ledger (append-only 해시 체인, 의존성 0)
+│   ├── core/          @remix-hub/core — 플랫폼 비종속 도메인 (모든 클라이언트·서버 공용)
+│   │   ├── types/       User, IP/ConsentPolicy, Space/Channel/Post, Creation, Export/License, Ledger
+│   │   ├── consent/     Consent Matrix (허용 행위·금지선·반출 정책·분배율)
+│   │   ├── moderation/  Hard Limit 사전 검사
+│   │   ├── rights/      Rights Engine — G1/G2/G3 게이트 + 가격·분배 계산
+│   │   └── ledger/      License Ledger (append-only 해시 체인, 의존성 0)
+│   └── client-core/   @remix-hub/client-core — 헤드리스 클라이언트 (web·desktop·mobile 공용)
+│       ├── api          REST 클라이언트 (fetch 주입 가능)
+│       ├── session      JWT 세션 + 교체 가능한 저장소(localStorage/AsyncStorage/메모리)
+│       └── realtime     채널 WebSocket 구독
 ├── apps/
-│   ├── api/           @remix-hub/api — Fastify 백엔드 (서비스 + Plugin Gateway)
+│   ├── api/           @remix-hub/api — Fastify 백엔드 (서비스 + Plugin Gateway + 실시간)
 │   │   └── plugins/     REMIX Plugin SDK + NVIDIA NIM 어댑터 + 스텁(failover)
-│   └── web/           @remix-hub/web — React + Vite 웹 클라이언트 (목업 → 실서비스)
+│   ├── web/           @remix-hub/web — React + Vite 웹 (client-core 소비)
+│   ├── desktop/       @remix-hub/desktop — Tauri 셸 (웹 앱 재사용) *기본 설치 제외
+│   └── mobile/        @remix-hub/mobile — Expo/React Native (client-core 소비) *기본 설치 제외
 └── docs/ARCHITECTURE.md
 ```
+
+**멀티플랫폼 코드 재사용**: 도메인 규칙은 `@remix-hub/core`, 클라이언트 로직(API·세션·실시간)은
+`@remix-hub/client-core`에 모여 있습니다. 웹은 두 패키지를 직접 소비하고, **데스크탑(Tauri)** 은
+웹 앱을 그대로 웹뷰로 감싸며, **모바일(Expo/RN)** 은 동일한 `client-core`에 네이티브 화면만 붙입니다.
+desktop/mobile은 네이티브 툴체인이 무거워 기본 설치 그래프에서 제외 — 각 앱 README로 부트스트랩.
 
 핵심 설계 원칙(PRD §1.2)을 코드 구조에 그대로 반영했습니다.
 

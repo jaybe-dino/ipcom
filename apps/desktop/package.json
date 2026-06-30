@@ -1,0 +1,18 @@
+{
+  "name": "@remix-hub/desktop",
+  "version": "0.1.0",
+  "description": "REMIX HUB desktop shell (Tauri) — wraps the web client into a native app.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}

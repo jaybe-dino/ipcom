@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "REMIX HUB",
+  "version": "0.1.0",
+  "identifier": "dev.remixhub.desktop",
+  "build": {
+    "//": "Reuse the web app: dev points at the Vite server, prod loads the web build.",
+    "beforeDevCommand": "pnpm --filter @remix-hub/web dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm --filter @remix-hub/web build",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "REMIX HUB",
+        "width": 1280,
+        "height": 832,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"]
+  }
+}

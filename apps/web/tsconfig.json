@@ -8,7 +8,10 @@
     "types": ["vite/client"],
     "noEmit": true
   },
-  "references": [{ "path": "../../packages/core" }],
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/client-core" }
+  ],
   "include": ["src/**/*", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,3 +1,8 @@
+# Desktop (apps/desktop, Tauri) and mobile (apps/mobile, Expo) are intentionally
+# NOT in the install graph: their native toolchains (Rust / React Native) are
+# heavy and platform-specific. They consume the same workspace packages and are
+# bootstrapped on demand — see each app's README.
 packages:
   - "packages/*"
-  - "apps/*"
+  - "apps/web"
+  - "apps/api"
