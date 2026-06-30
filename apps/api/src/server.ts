@@ -4,6 +4,7 @@ import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
+import { PluginGateway } from "./plugins/gateway.js";
 import { EventBus } from "./realtime/bus.js";
 import { registerRealtime } from "./realtime/ws.js";
 import { MemoryRepo, createRepo, type Repo } from "./repo/index.js";
@@ -18,7 +19,8 @@ import { RemixService } from "./service.js";
  */
 export function buildServer(repo: Repo = new MemoryRepo()) {
   const bus = new EventBus();
-  const service = new RemixService(repo, undefined, bus);
+  const gateway = PluginGateway.fromEnv();
+  const service = new RemixService(repo, gateway, bus);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
@@ -29,6 +31,9 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const auth = () => ({ preHandler: [app.authenticate] });
 
   app.get("/health", async () => ({ status: "ok", service: "remix-hub-api", version: "0.1.0" }));
+
+  // Plugin Gateway inventory (which adapters serve which capabilities).
+  app.get("/plugins", async () => gateway.describe());
 
   // --- Spaces & channels (Community Service) — public reads ---
   app.get("/spaces", async () => ({ spaces: await repo.listSpaces() }));

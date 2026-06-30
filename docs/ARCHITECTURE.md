@@ -72,8 +72,12 @@ PRD(첨부 상세 기획안)를 코드로 옮긴 현재 구현 상태와, 앱/�
 ## 5. 플러그인 SDK & NVIDIA NIM
 
 `RemixPlugin` 인터페이스: `submit() → poll() → provenance()`. `PluginGateway`가 capability별로
-어댑터를 라우팅하고, 실패 시 스텁으로 failover합니다. `NimPlugin`은 build.nvidia.com의 비주얼
-생성 NIM(예: SDXL)을 호출하는 레퍼런스 구현이며 `NVIDIA_API_KEY`로 게이트됩니다.
+어댑터를 라우팅하고, 비동기 잡은 완료까지 폴링하며, 실패 시 스텁으로 failover합니다.
+
+`NimPlugin`(build.nvidia.com)은 멀티 capability(image/video/music/voice/3d) 레퍼런스 구현으로,
+capability별 모델을 환경변수로 지정해 활성화합니다. 동기(artifact/URL) 및 비동기(request id +
+상태 폴링) 응답을 모두 표준 SDK 계약으로 정규화합니다. `fetch`는 주입 가능해 단위 테스트가
+실제 NVIDIA 키 없이 요청 구성·응답 파싱·failover를 검증합니다. `GET /plugins`로 인벤토리 노출.
 
 ## 6. 개발 단계(PRD §9) 대비 현재 위치
 

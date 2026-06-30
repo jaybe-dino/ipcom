@@ -30,9 +30,16 @@ describe("nimConfigFromEnv", () => {
     expect(nimConfigFromEnv({})).toBeNull();
   });
 
-  it("uses defaults when only the key is set", () => {
+  it("enables image by default (SDXL) when only the key is set", () => {
     const cfg = nimConfigFromEnv({ NVIDIA_API_KEY: "k" });
     expect(cfg?.baseUrl).toBe("https://ai.api.nvidia.com/v1");
-    expect(cfg?.imageModel).toBe("stabilityai/stable-diffusion-xl");
+    expect(cfg?.models.image?.model).toBe("stabilityai/stable-diffusion-xl");
+    expect(cfg?.models.video).toBeUndefined();
+  });
+
+  it("enables extra capabilities when their model env is set", () => {
+    const cfg = nimConfigFromEnv({ NVIDIA_API_KEY: "k", NIM_VIDEO_MODEL: "vid-1", NIM_MUSIC_MODEL: "mus-1" });
+    expect(cfg?.models.video?.model).toBe("vid-1");
+    expect(cfg?.models.music?.model).toBe("mus-1");
   });
 });

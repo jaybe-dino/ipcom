@@ -117,12 +117,14 @@ pnpm build       # 전체 빌드
 생성 엔진은 **REMIX Plugin SDK**(`apps/api/src/plugins/types.ts`)로 추상화되어 있고, 첫 레퍼런스
 어댑터로 **NVIDIA NIM**(<https://build.nvidia.com/>)을 연동했습니다.
 
-- `NVIDIA_API_KEY` 환경변수가 있으면 NIM 어댑터가 활성화되고, 없으면 로컬 **스텁 어댑터로 failover**
-  하므로 개발 환경이 멈추지 않습니다(PRD §5.2 멀티 벤더).
-- 설정은 모두 환경변수로 분리 (`.env.example` 참고) — 코드에 시크릿이 들어가지 않습니다.
+- **멀티 capability**: image / video / music / voice / 3d. capability별 모델을 환경변수로 지정하면
+  활성화됩니다(`NIM_IMAGE_MODEL`은 SDXL 기본값, 나머지는 opt-in).
+- **동기 + 비동기** 모두 지원: 모델이 artifact/URL을 즉시 주면 완료, request id + 상태를 주면
+  게이트웨이가 `NIM_STATUS_PATH`로 폴링해 완료까지 추적.
+- `NVIDIA_API_KEY`가 없거나 호출이 실패하면 로컬 **스텁 어댑터로 failover**(PRD §5.2 멀티 벤더).
+- 설정은 모두 환경변수로 분리 (`.env.example`) — 코드에 시크릿 없음. `GET /plugins`로 현재
+  어댑터·capability 인벤토리 확인.
 - 어떤 어댑터로 만들었든 동일한 모더레이션·워터마크·원장 파이프라인을 통과합니다(plugin-agnostic).
-
-향후 음악·보이스·3D NIM 및 기타 벤더 어댑터를 같은 인터페이스로 추가합니다.
 
 > ⚠️ 본 저장소의 수치·정책·법적 정리는 기획 단계 예시이며, 사업화 전 IP·엔터·AI 전문 변호사 검토가
 > 필요합니다(PRD §7).
