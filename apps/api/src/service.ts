@@ -6,21 +6,20 @@ import {
   type Creation,
   type CreativeAction,
   type ExportRequest,
-  type IP,
   type UseType,
 } from "@remix-hub/core";
 import { newId, now } from "./ids.js";
 import { PluginGateway } from "./plugins/gateway.js";
-import type { Store } from "./store.js";
+import type { Repo } from "./repo/types.js";
 
 /**
- * Application service tying @remix-hub/core gates to the store and ledger.
+ * Application service tying @remix-hub/core gates to the repository and ledger.
  * This is where the PRD §2.2 data flow lives: every generation and export
  * passes through moderation → rights → plugin → watermark/ledger in one place.
  */
 export class RemixService {
   constructor(
-    private readonly store: Store,
+    private readonly repo: Repo,
     private readonly gateway: PluginGateway = PluginGateway.fromEnv(),
   ) {}
 
@@ -32,10 +31,9 @@ export class RemixService {
     prompt: string;
     pluginId?: string;
     sourceAssets?: string[];
-    /** Optional externally-computed moderation scores from the plugin gateway. */
     moderationScores?: Record<string, number>;
   }): Promise<{ ok: true; creation: Creation } | { ok: false; status: number; reason: string }> {
-    const ctx = this.store.spaceWithIp(params.spaceId);
+    const ctx = await this.repo.spaceWithIp(params.spaceId);
     if (!ctx) return { ok: false, status: 404, reason: "space_not_found" };
 
     const moderation = screenHardLimits({
@@ -46,13 +44,10 @@ export class RemixService {
 
     const verdict = canGenerate(ctx.ip, params.action, moderation);
     if (verdict.decision === "DENY") {
-      // Record the refusal for auditability (PRD §4.4).
-      this.store.ledger.append({
-        entry_id: newId("led"),
+      await this.repo.appendLedger({
         event_type: "create",
         actor: params.creatorId,
         payload: { result: "denied", reason: verdict.reason, ip_id: ctx.ip.ip_id, action: params.action },
-        timestamp: now(),
       });
       return { ok: false, status: 403, reason: verdict.reason ?? "denied" };
     }
@@ -73,45 +68,44 @@ export class RemixService {
       plugin_id: params.pluginId ?? job.plugin_id,
       action: params.action,
       source_assets: params.sourceAssets ?? [],
-      output_asset: job.output, // produced by the plugin, carries provenance
+      output_asset: job.output,
       moderation,
       provenance: job.provenance,
       status: "generated",
       created_at: now(),
     };
-    this.store.creations.set(creation.creation_id, creation);
+    await this.repo.saveCreation(creation);
 
-    this.store.ledger.append({
-      entry_id: newId("led"),
+    await this.repo.appendLedger({
       event_type: "create",
       actor: params.creatorId,
       payload: { result: "generated", creation_id: creation.creation_id, ip_id: ctx.ip.ip_id, action: params.action },
-      timestamp: now(),
     });
 
     return { ok: true, creation };
   }
 
   /** G2: internal share — always free for space members. */
-  shareInternally(creationId: string): Creation | null {
-    const creation = this.store.creations.get(creationId);
+  async shareInternally(creationId: string): Promise<Creation | null> {
+    const creation = await this.repo.getCreation(creationId);
     if (!creation) return null;
     creation.status = "shared";
+    await this.repo.saveCreation(creation);
     return creation;
   }
 
   /** G3: request an external export; computes policy + fee + split snapshot. */
-  requestExport(params: {
+  async requestExport(params: {
     creationId: string;
     requesterId: string;
     useType: UseType;
     salePrice?: number;
-  }):
-    | { ok: true; export: ExportRequest }
-    | { ok: false; status: number; reason: string } {
-    const creation = this.store.creations.get(params.creationId);
+  }): Promise<
+    { ok: true; export: ExportRequest } | { ok: false; status: number; reason: string }
+  > {
+    const creation = await this.repo.getCreation(params.creationId);
     if (!creation) return { ok: false, status: 404, reason: "creation_not_found" };
-    const ip = this.store.ips.get(creation.ip_id);
+    const ip = await this.repo.getIp(creation.ip_id);
     if (!ip) return { ok: false, status: 404, reason: "ip_not_found" };
 
     let verdict;
@@ -139,11 +133,11 @@ export class RemixService {
       created_at: now(),
       decided_at: verdict.outcome === "auto" ? now() : null,
     };
-    this.store.exports.set(exportReq.export_id, exportReq);
+    await this.repo.saveExport(exportReq);
     creation.status = "export_requested";
+    await this.repo.saveCreation(creation);
 
-    this.store.ledger.append({
-      entry_id: newId("led"),
+    await this.repo.appendLedger({
       event_type: "export",
       actor: params.requesterId,
       payload: {
@@ -153,26 +147,27 @@ export class RemixService {
         approval: exportReq.approval,
         fee_amount: exportReq.fee_amount,
       },
-      timestamp: now(),
     });
 
     return { ok: true, export: exportReq };
   }
 
   /** IP owner approves or rejects a pending export request. */
-  decideExport(params: {
+  async decideExport(params: {
     exportId: string;
     ownerId: string;
     approve: boolean;
     reason?: string;
-  }): { ok: true; export: ExportRequest } | { ok: false; status: number; reason: string } {
-    const exportReq = this.store.exports.get(params.exportId);
+  }): Promise<
+    { ok: true; export: ExportRequest } | { ok: false; status: number; reason: string }
+  > {
+    const exportReq = await this.repo.getExport(params.exportId);
     if (!exportReq) return { ok: false, status: 404, reason: "export_not_found" };
     if (exportReq.approval !== "pending") {
       return { ok: false, status: 409, reason: "export_not_pending" };
     }
-    const creation = this.store.creations.get(exportReq.creation_id);
-    const ip = creation ? this.store.ips.get(creation.ip_id) : undefined;
+    const creation = await this.repo.getCreation(exportReq.creation_id);
+    const ip = creation ? await this.repo.getIp(creation.ip_id) : null;
     if (!ip || ip.owner_id !== params.ownerId) {
       return { ok: false, status: 403, reason: "not_ip_owner" };
     }
@@ -180,24 +175,26 @@ export class RemixService {
     exportReq.approval = params.approve ? "approved" : "rejected";
     exportReq.decided_at = now();
     if (!params.approve) exportReq.reject_reason = params.reason ?? "rejected_by_owner";
+    await this.repo.saveExport(exportReq);
 
-    this.store.ledger.append({
-      entry_id: newId("led"),
+    await this.repo.appendLedger({
       event_type: "export",
       actor: params.ownerId,
       payload: { export_id: exportReq.export_id, decision: exportReq.approval },
-      timestamp: now(),
     });
 
     return { ok: true, export: exportReq };
   }
 
   /** Trigger payment + settlement for an approved/auto export, issuing a license. */
-  payAndSettle(
+  async payAndSettle(
     exportId: string,
     actorId: string,
-  ): { ok: true; export: ExportRequest; distribution: ReturnType<typeof distribute> } | { ok: false; status: number; reason: string } {
-    const exportReq = this.store.exports.get(exportId);
+  ): Promise<
+    | { ok: true; export: ExportRequest; distribution: ReturnType<typeof distribute> }
+    | { ok: false; status: number; reason: string }
+  > {
+    const exportReq = await this.repo.getExport(exportId);
     if (!exportReq) return { ok: false, status: 404, reason: "export_not_found" };
     if (exportReq.approval !== "approved" && exportReq.approval !== "auto") {
       return { ok: false, status: 409, reason: "export_not_approved" };
@@ -205,11 +202,14 @@ export class RemixService {
 
     const distribution = distribute(exportReq.fee_amount, exportReq.split_snapshot);
     exportReq.license_doc = newId("lic");
-    const creation = this.store.creations.get(exportReq.creation_id);
-    if (creation) creation.status = "exported";
+    await this.repo.saveExport(exportReq);
+    const creation = await this.repo.getCreation(exportReq.creation_id);
+    if (creation) {
+      creation.status = "exported";
+      await this.repo.saveCreation(creation);
+    }
 
-    this.store.ledger.append({
-      entry_id: newId("led"),
+    await this.repo.appendLedger({
       event_type: "settle",
       actor: actorId,
       payload: {
@@ -218,7 +218,6 @@ export class RemixService {
         fee_amount: exportReq.fee_amount,
         distribution,
       },
-      timestamp: now(),
     });
 
     return { ok: true, export: exportReq, distribution };

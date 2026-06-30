@@ -30,8 +30,8 @@ PRD(첨부 상세 기획안)를 코드로 옮긴 현재 구현 상태와, 앱/�
 
 | PRD 서비스 | 현재 구현 | 비고 |
 | --- | --- | --- |
-| Community Service | `apps/api` spaces/channels/posts 라우트, `Store` | 실시간(WebSocket)은 후속 |
-| Identity & Access | `x-user-id` 스텁 헤더 | OAuth2/JWT + RBAC로 대체 예정 |
+| Community Service | `apps/api` spaces/channels/posts 라우트, `Repo` | 실시간(WebSocket)은 후속 |
+| Identity & Access | JWT + scrypt + RBAC (`src/auth`) | ✅ register/login, 역할 기반 권한 |
 | Plugin Gateway | `apps/api/src/plugins/*` | NIM 어댑터 + 스텁 failover |
 | Rights Engine | `@remix-hub/core/rights` (G1/G2/G3) | 완료 (단위 테스트) |
 | Moderation | `@remix-hub/core/moderation` | 키워드 스텁 → 실모델 드롭인 |
@@ -41,11 +41,20 @@ PRD(첨부 상세 기획안)를 코드로 옮긴 현재 구현 상태와, 앱/�
 | Watermark/Provenance | `Creation.provenance`, `visible_label` | 실제 워터마크 삽입은 후속 |
 | Asset Storage/CDN | 에셋 참조 문자열 | 실저장소 연동은 후속 |
 
-## 3. 데이터 모델
+## 3. 데이터 모델 & 저장소
 
 `@remix-hub/core/types`에 PRD §3 엔티티를 1:1로 정의했습니다: `User/Role`, `IP/ConsentPolicy`,
-`Space/Channel/Post`, `Creation`, `ExportRequest/License`, `LedgerEntry`. 개념 스키마이며, DB 컬럼·타입은
-`Store`를 실제 DB로 교체할 때 확정합니다.
+`Space/Channel/Post`, `Creation`, `ExportRequest/License`, `LedgerEntry`.
+
+영속화는 `Repo` 인터페이스(`apps/api/src/repo/types.ts`)로 추상화되어 있고 두 구현이 있습니다:
+
+- **MemoryRepo** — 인메모리(개발·테스트 기본)
+- **DrizzleRepo** — Drizzle ORM 기반 PostgreSQL. `DATABASE_URL`이면 node-postgres,
+  `USE_PGLITE=1`이면 임베디드 Postgres(PGlite, 서버 불필요)로 동작. 런타임 `migrate()`가
+  테이블을 멱등 생성하고 `seedIfEmpty()`가 데모 데이터를 시드.
+
+원장 무결성: `LedgerEntry.timestamp`는 해시 입력의 일부라 DB에 텍스트로 원형 저장(타임존 타입의
+포맷 변형으로 체인이 깨지는 것을 방지). PGlite 통합 테스트가 전체 파이프라인 후 체인 검증을 보장.
 
 ## 4. API 엔드포인트(PRD §6)
 

@@ -10,16 +10,24 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.3",
     "@fastify/cors": "^10.0.1",
     "@fastify/jwt": "^9.0.3",
     "@remix-hub/core": "workspace:*",
-    "fastify": "^5.2.0"
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.2.0",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

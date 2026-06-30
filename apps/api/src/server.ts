@@ -4,46 +4,45 @@ import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
+import { MemoryRepo, createRepo, type Repo } from "./repo/index.js";
 import { RemixService } from "./service.js";
-import { Store } from "./store.js";
 
 /**
  * REMIX HUB API.
  *
  * Identity comes from a JWT bearer token (see ./auth). Reads are public;
  * mutating routes require `authenticate`, and owner-only routes add RBAC.
+ * The storage engine is injected as a `Repo` (memory / Postgres).
  */
-export function buildServer() {
-  const store = new Store();
-  const service = new RemixService(store);
+export function buildServer(repo: Repo = new MemoryRepo()) {
+  const service = new RemixService(repo);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
-  registerAuth(app, store);
+  registerAuth(app, repo);
 
-  /** Authenticated user id (routes that use this are behind `authenticate`). */
   const uid = (req: { authUser?: { sub: string } }): string => req.authUser!.sub;
   const auth = () => ({ preHandler: [app.authenticate] });
 
   app.get("/health", async () => ({ status: "ok", service: "remix-hub-api", version: "0.1.0" }));
 
   // --- Spaces & channels (Community Service) — public reads ---
-  app.get("/spaces", async () => ({ spaces: [...store.spaces.values()] }));
+  app.get("/spaces", async () => ({ spaces: await repo.listSpaces() }));
 
   app.get("/spaces/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const ctx = store.spaceWithIp(id);
+    const ctx = await repo.spaceWithIp(id);
     if (!ctx) return reply.code(404).send({ error: "space_not_found" });
-    const channels = [...store.channels.values()].filter((c) => c.space_id === id);
+    const channels = await repo.listChannels(id);
     return { space: ctx.space, ip: ctx.ip, channels };
   });
 
   app.get("/channels/:id/posts", async (req) => {
     const { id } = req.params as { id: string };
-    const posts = [...store.posts.values()].filter((p) => p.channel_id === id);
-    const creations = posts
-      .map((p) => (p.creation_id ? store.creations.get(p.creation_id) : null))
-      .filter(Boolean);
+    const posts = await repo.listPosts(id);
+    const creations = (
+      await Promise.all(posts.map((p) => (p.creation_id ? repo.getCreation(p.creation_id) : null)))
+    ).filter(Boolean);
     return { posts, creations };
   });
 
@@ -76,7 +75,7 @@ export function buildServer() {
 
   app.get("/generations/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const creation = store.creations.get(id);
+    const creation = await repo.getCreation(id);
     if (!creation) return reply.code(404).send({ error: "creation_not_found" });
     return { creation };
   });
@@ -84,7 +83,7 @@ export function buildServer() {
   // --- Internal share (G2) ---
   app.post("/generations/:id/share", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };
-    const creation = service.shareInternally(id);
+    const creation = await service.shareInternally(id);
     if (!creation) return reply.code(404).send({ error: "creation_not_found" });
     return { creation };
   });
@@ -93,7 +92,7 @@ export function buildServer() {
   app.post("/generations/:id/export", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { use_type: UseType; sale_price?: number };
-    const result = service.requestExport({
+    const result = await service.requestExport({
       creationId: id,
       requesterId: uid(req),
       useType: body.use_type,
@@ -110,7 +109,7 @@ export function buildServer() {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const body = (req.body ?? {}) as { approve?: boolean; reason?: string };
-      const result = service.decideExport({
+      const result = await service.decideExport({
         exportId: id,
         ownerId: uid(req),
         approve: body.approve ?? true,
@@ -123,17 +122,17 @@ export function buildServer() {
 
   app.post("/exports/:id/pay", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };
-    const result = service.payAndSettle(id, uid(req));
+    const result = await service.payAndSettle(id, uid(req));
     if (!result.ok) return reply.code(result.status).send({ error: result.reason });
     return { export: result.export, distribution: result.distribution };
   });
 
-  app.get("/exports", async () => ({ exports: [...store.exports.values()] }));
+  app.get("/exports", async () => ({ exports: await repo.listExports() }));
 
   // --- Consent Matrix ---
   app.get("/ip/:id/consent", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const ip = store.ips.get(id);
+    const ip = await repo.getIp(id);
     if (!ip) return reply.code(404).send({ error: "ip_not_found" });
     return { ip_id: ip.ip_id, policy: ip.policy };
   });
@@ -144,20 +143,21 @@ export function buildServer() {
     { preHandler: [app.authenticate, app.requireRole("OWNER", "ADMIN")] },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      const ip = store.ips.get(id);
+      const ip = await repo.getIp(id);
       if (!ip) return reply.code(404).send({ error: "ip_not_found" });
       if (ip.owner_id !== uid(req)) return reply.code(403).send({ error: "not_ip_owner" });
       const body = req.body as Parameters<typeof revisePolicy>[1];
-      ip.policy = revisePolicy(ip.policy, body ?? {});
-      return { ip_id: ip.ip_id, policy: ip.policy };
+      const policy = revisePolicy(ip.policy, body ?? {});
+      await repo.setIpPolicy(id, policy);
+      return { ip_id: ip.ip_id, policy };
     },
   );
 
   // --- License Ledger ---
   app.get("/ledger", async () => ({
-    entries: store.ledger.list(),
-    head_hash: store.ledger.headHash,
-    integrity_ok: store.ledger.verify() === -1,
+    entries: await repo.listLedger(),
+    head_hash: await repo.ledgerHead(),
+    integrity_ok: (await repo.verifyLedger()) === -1,
   }));
 
   return app;
@@ -165,10 +165,11 @@ export function buildServer() {
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain || process.env.RUN_SERVER === "1") {
-  const app = buildServer();
   const port = Number(process.env.PORT ?? 4000);
-  app.listen({ port, host: "0.0.0.0" }).catch((err) => {
-    app.log.error(err);
-    process.exit(1);
-  });
+  createRepo()
+    .then((repo) => buildServer(repo).listen({ port, host: "0.0.0.0" }))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }

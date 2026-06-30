@@ -69,6 +69,20 @@ pnpm build       # 전체 빌드
 - 비밀번호는 scrypt 해시(Node 내장, 외부 의존성 0), 시크릿은 `JWT_SECRET` 환경변수
 - **데모 계정** (개발 시드): `minji@remixhub.dev`(크리에이터) / `owner@remixhub.dev`(IP 소유자), 둘 다 비밀번호 `password`. 웹 상단 바에서 원클릭 로그인.
 
+### 저장소 엔진 (Repo)
+
+비즈니스 로직은 `Repo` 인터페이스에만 의존하며, 환경변수로 엔진을 교체합니다(코드 변경 0):
+
+| 우선순위 | 조건 | 엔진 |
+| --- | --- | --- |
+| 1 | `DATABASE_URL` 설정 | PostgreSQL (node-postgres + Drizzle, 운영) |
+| 2 | `USE_PGLITE=1` | PGlite 임베디드 Postgres (실제 SQL, 서버 불필요) |
+| 3 | (기본) | 인메모리 (개발·테스트) |
+
+- 스키마는 Drizzle ORM(`src/repo/drizzle/schema.ts`), 런타임 `migrate()`가 테이블을 멱등 생성하고 데모 데이터를 시드합니다.
+- 라이선스 원장은 해시 무결성을 위해 timestamp를 텍스트로 원형 저장 → DB를 거쳐도 체인 검증 통과(PGlite 통합 테스트로 보장).
+- 마이그레이션 파일 생성: `pnpm --filter @remix-hub/api db:generate` (drizzle-kit).
+
 ---
 
 ## 3단계 권리 게이트 (Rights Engine)

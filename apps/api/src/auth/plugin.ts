@@ -2,7 +2,7 @@ import fastifyJwt from "@fastify/jwt";
 import type { Role } from "@remix-hub/core";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { newId } from "../ids.js";
-import type { Store } from "../store.js";
+import type { Repo } from "../repo/types.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import type { AuthClaims } from "./types.js";
 
@@ -11,7 +11,7 @@ const DEV_SECRET = "remix-hub-dev-secret-change-me";
 /** Default demo credentials seeded for the two seed users (dev only). */
 const DEMO_PASSWORD = "password";
 
-export function registerAuth(app: FastifyInstance, store: Store): void {
+export function registerAuth(app: FastifyInstance, repo: Repo): void {
   // Queued like any Fastify plugin; loaded during app.ready(). req.jwtVerify /
   // app.jwt become available at handler time (post-ready).
   void app.register(fastifyJwt, {
@@ -38,11 +38,11 @@ export function registerAuth(app: FastifyInstance, store: Store): void {
     };
   });
 
-  // Seed demo credentials once the server is ready (keeps buildServer sync).
+  // Seed demo credentials once the server is ready.
   app.addHook("onReady", async () => {
-    for (const user of store.users.values()) {
-      if (!store.credentials.has(user.user_id)) {
-        store.credentials.set(user.user_id, await hashPassword(DEMO_PASSWORD));
+    for (const user of await repo.listUsers()) {
+      if (!(await repo.getCredential(user.user_id))) {
+        await repo.setCredential(user.user_id, await hashPassword(DEMO_PASSWORD));
       }
     }
   });
@@ -53,7 +53,7 @@ export function registerAuth(app: FastifyInstance, store: Store): void {
     if (!body.email || !body.password) {
       return reply.code(400).send({ error: "email_and_password_required" });
     }
-    if (store.usersByEmail.has(body.email)) {
+    if (await repo.getUserByEmail(body.email)) {
       return reply.code(409).send({ error: "email_taken" });
     }
     const user = {
@@ -64,9 +64,7 @@ export function registerAuth(app: FastifyInstance, store: Store): void {
       display_name: body.display_name ?? body.email,
       payout_account: null,
     };
-    store.users.set(user.user_id, user);
-    store.usersByEmail.set(body.email, user.user_id);
-    store.credentials.set(user.user_id, await hashPassword(body.password));
+    await repo.createUser(user, body.email, await hashPassword(body.password));
 
     const token = app.jwt.sign({ sub: user.user_id, role: user.role });
     return reply.code(201).send({ token, user });
@@ -77,18 +75,17 @@ export function registerAuth(app: FastifyInstance, store: Store): void {
     if (!body.email || !body.password) {
       return reply.code(400).send({ error: "email_and_password_required" });
     }
-    const userId = store.usersByEmail.get(body.email);
-    const hash = userId ? store.credentials.get(userId) : undefined;
-    if (!userId || !hash || !(await verifyPassword(body.password, hash))) {
+    const user = await repo.getUserByEmail(body.email);
+    const hash = user ? await repo.getCredential(user.user_id) : null;
+    if (!user || !hash || !(await verifyPassword(body.password, hash))) {
       return reply.code(401).send({ error: "invalid_credentials" });
     }
-    const user = store.users.get(userId)!;
     const token = app.jwt.sign({ sub: user.user_id, role: user.role });
     return { token, user };
   });
 
   app.get("/auth/me", { preHandler: [app.authenticate] }, async (req) => {
-    const user = store.users.get(req.authUser!.sub);
+    const user = await repo.getUser(req.authUser!.sub);
     return { user };
   });
 }

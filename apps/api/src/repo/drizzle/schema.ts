@@ -1,0 +1,115 @@
+import type {
+  ConsentPolicy,
+  CreationStatus,
+  CreativeAction,
+  KycStatus,
+  ModerationResult,
+  Provenance,
+  Role,
+  UseType,
+  Verification,
+} from "@remix-hub/core";
+import { bigint, boolean, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+
+/** Postgres schema for REMIX HUB. Rich domain objects are stored as jsonb. */
+
+export const users = pgTable("users", {
+  user_id: text("user_id").primaryKey(),
+  email: text("email").notNull().unique(),
+  password_hash: text("password_hash"),
+  role: text("role").$type<Role>().notNull(),
+  kyc_status: text("kyc_status").$type<KycStatus>().notNull().default("none"),
+  age_verified: boolean("age_verified").notNull().default(false),
+  payout_account: text("payout_account"),
+  display_name: text("display_name"),
+});
+
+export const ips = pgTable("ips", {
+  ip_id: text("ip_id").primaryKey(),
+  owner_id: text("owner_id").notNull(),
+  name: text("name").notNull(),
+  verification: text("verification").$type<Verification>().notNull(),
+  policy: jsonb("policy").$type<ConsentPolicy>().notNull(),
+});
+
+export const spaces = pgTable("spaces", {
+  space_id: text("space_id").primaryKey(),
+  ip_id: text("ip_id").notNull(),
+  name: text("name").notNull(),
+  cover: text("cover"),
+  member_count: integer("member_count").notNull().default(0),
+  online_count: integer("online_count").notNull().default(0),
+});
+
+export const channels = pgTable("channels", {
+  channel_id: text("channel_id").primaryKey(),
+  space_id: text("space_id").notNull(),
+  name: text("name").notNull(),
+  type: text("type").$type<"creation" | "community" | "market">().notNull(),
+  topic: text("topic"),
+});
+
+export const posts = pgTable("posts", {
+  post_id: text("post_id").primaryKey(),
+  channel_id: text("channel_id").notNull(),
+  author_id: text("author_id").notNull(),
+  text: text("text"),
+  creation_id: text("creation_id"),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
+export const creations = pgTable("creations", {
+  creation_id: text("creation_id").primaryKey(),
+  ip_id: text("ip_id").notNull(),
+  creator_id: text("creator_id").notNull(),
+  plugin_id: text("plugin_id").notNull(),
+  action: text("action").$type<CreativeAction>().notNull(),
+  prompt_ref: text("prompt_ref"),
+  source_assets: jsonb("source_assets").$type<string[]>().notNull().default([]),
+  output_asset: text("output_asset"),
+  moderation: jsonb("moderation").$type<ModerationResult>().notNull(),
+  provenance: jsonb("provenance").$type<Provenance>(),
+  status: text("status").$type<CreationStatus>().notNull(),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
+export const exportRequests = pgTable("export_requests", {
+  export_id: text("export_id").primaryKey(),
+  creation_id: text("creation_id").notNull(),
+  requester_id: text("requester_id").notNull(),
+  use_type: text("use_type").$type<UseType>().notNull(),
+  approval: text("approval").$type<"auto" | "pending" | "approved" | "rejected">().notNull(),
+  fee_amount: bigint("fee_amount", { mode: "number" }).notNull(),
+  split_snapshot: jsonb("split_snapshot")
+    .$type<{ owner: number; creator: number; platform: number }>()
+    .notNull(),
+  license_doc: text("license_doc"),
+  visible_label: boolean("visible_label").notNull().default(true),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+  decided_at: timestamp("decided_at", { mode: "string", withTimezone: true }),
+  reject_reason: text("reject_reason"),
+});
+
+export const ledgerEntries = pgTable("ledger_entries", {
+  entry_id: text("entry_id").primaryKey(),
+  index: integer("index").notNull(),
+  event_type: text("event_type").$type<"create" | "export" | "settle" | "adjust">().notNull(),
+  actor: text("actor").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  payload_hash: text("payload_hash").notNull(),
+  prev_hash: text("prev_hash").notNull(),
+  // Stored as text so the exact ISO string round-trips — it is part of the
+  // integrity hash, and timestamptz would reformat it and break the chain.
+  timestamp: text("timestamp").notNull(),
+});
+
+export const schema = {
+  users,
+  ips,
+  spaces,
+  channels,
+  posts,
+  creations,
+  exportRequests,
+  ledgerEntries,
+};
