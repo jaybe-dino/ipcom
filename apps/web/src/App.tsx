@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { AuthBar } from "./components/AuthBar.js";
+import { useSession } from "./useSession.js";
+import { AuthScreen } from "./screens/AuthScreen.js";
 import { ConsentScreen } from "./screens/ConsentScreen.js";
 import { GateScreen } from "./screens/GateScreen.js";
 import { HomeScreen } from "./screens/HomeScreen.js";
@@ -11,7 +13,7 @@ export type ScreenId = "home" | "space" | "gate" | "consent" | "settle" | "marke
 
 const NAV: { id: ScreenId; label: string }[] = [
   { id: "home", label: "① 스페이스 탐색" },
-  { id: "space", label: "② 채널 + AI 캔버스" },
+  { id: "space", label: "② 커뮤니티 · 채팅" },
   { id: "gate", label: "③ 외부 반출 게이트" },
   { id: "consent", label: "④ IP 동의 매트릭스" },
   { id: "settle", label: "⑤ 정산 대시보드" },
@@ -19,7 +21,8 @@ const NAV: { id: ScreenId; label: string }[] = [
 ];
 
 export function App() {
-  const [screen, setScreen] = useState<ScreenId>("home");
+  const user = useSession();
+  const [screen, setScreen] = useState<ScreenId>("space");
   // The creation currently selected for export (drives the Gate screen).
   const [exportCreationId, setExportCreationId] = useState<string | null>(null);
 
@@ -27,6 +30,9 @@ export function App() {
     setScreen(id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Community is gated: sign in (or sign up) to enter.
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="app">

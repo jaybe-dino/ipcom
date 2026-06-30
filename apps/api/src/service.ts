@@ -7,6 +7,7 @@ import {
   type Creation,
   type CreativeAction,
   type ExportRequest,
+  type Post,
   type UseType,
 } from "@remix-hub/core";
 import { MemoryAssetStore, type AssetStore } from "./assets/store.js";
@@ -89,7 +90,7 @@ export class RemixService {
       payload: { result: "generated", creation_id: creation.creation_id, ip_id: ctx.ip.ip_id, action: params.action },
     });
 
-    // Post into the channel + broadcast to live subscribers (PRD: 실시간 채널).
+    // Post the creation into the channel + broadcast to live subscribers.
     if (params.channelId) {
       const post = {
         post_id: newId("post"),
@@ -100,10 +101,33 @@ export class RemixService {
         created_at: now(),
       };
       await this.repo.createPost(post);
-      this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, creation });
+      const author = await this.repo.getUser(params.creatorId);
+      this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, creation, author });
     }
 
     return { ok: true, creation };
+  }
+
+  /** Community chat: send a plain text message to a channel and broadcast it. */
+  async sendMessage(params: {
+    channelId: string;
+    authorId: string;
+    text: string;
+  }): Promise<{ ok: true; post: Post } | { ok: false; status: number; reason: string }> {
+    const text = params.text?.trim();
+    if (!text) return { ok: false, status: 400, reason: "empty_message" };
+    const post: Post = {
+      post_id: newId("post"),
+      channel_id: params.channelId,
+      author_id: params.authorId,
+      text,
+      creation_id: null,
+      created_at: now(),
+    };
+    await this.repo.createPost(post);
+    const author = await this.repo.getUser(params.authorId);
+    this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, author });
+    return { ok: true, post };
   }
 
   /** G2: internal share — always free for space members. */

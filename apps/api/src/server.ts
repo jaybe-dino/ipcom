@@ -59,7 +59,22 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const creations = (
       await Promise.all(posts.map((p) => (p.creation_id ? repo.getCreation(p.creation_id) : null)))
     ).filter(Boolean);
-    return { posts, creations };
+    // Author directory so the chat can show real display names.
+    const authorIds = [...new Set(posts.map((p) => p.author_id))];
+    const authorList = (await Promise.all(authorIds.map((aid) => repo.getUser(aid)))).filter(Boolean);
+    const authors = Object.fromEntries(
+      authorList.map((u) => [u!.user_id, { user_id: u!.user_id, display_name: u!.display_name, role: u!.role }]),
+    );
+    return { posts, creations, authors };
+  });
+
+  // Community chat: post a text message to a channel (broadcast in real time).
+  app.post("/channels/:id/messages", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { text: string };
+    const result = await service.sendMessage({ channelId: id, authorId: uid(req), text: body.text });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ post: result.post });
   });
 
   // --- Generation (G1) — creators/owners ---

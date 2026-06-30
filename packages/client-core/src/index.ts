@@ -12,6 +12,7 @@ export {
   type Api,
   type ClientConfig,
   type PluginInventory,
+  type AuthorRef,
 } from "./api.js";
 export {
   subscribeChannel,

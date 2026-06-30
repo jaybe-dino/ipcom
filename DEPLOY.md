@@ -49,10 +49,17 @@ fly deploy               # https://<app>.fly.dev
 
 ---
 
-## 데이터 영속화 (선택)
+## 데이터 영속화 (실서비스는 필수)
 
-위 어느 옵션이든 Postgres를 만들고 환경변수 `DATABASE_URL`을 설정하면 자동으로 영속
-저장소(Drizzle)로 전환됩니다. 미설정 시 인메모리(시드 데이터, 재시작 시 초기화).
+기본은 인메모리(시드 데이터, **재배포·재시작 시 초기화**)라 실제 회원가입/채팅이 사라집니다.
+실제 운영하려면 Postgres를 붙이고 `DATABASE_URL`만 설정하면 자동으로 영속 저장소(Drizzle)로
+전환됩니다(코드 변경 0).
+
+**Railway 예시**: 프로젝트에서 **New → Database → Add PostgreSQL** → 생성된 Postgres의
+`DATABASE_URL`을 웹 서비스 **Variables**에 추가(또는 Reference로 연결) → 재배포. 이후 가입한
+계정·채팅·주문·원장이 영구 보존됩니다.
+
+> 코드를 푸시하면 Railway/Render는 연결된 브랜치를 **자동 재배포**합니다(별도 작업 불필요).
 
 ## 환경변수 요약
 

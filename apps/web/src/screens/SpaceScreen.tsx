@@ -1,36 +1,56 @@
-import type { Channel, Creation, CreativeAction, Post } from "@remix-hub/core";
-import { useEffect, useState } from "react";
+import type { AuthorRef, Channel, Creation, CreativeAction, Post } from "@remix-hub/client-core";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api.js";
 import { subscribeChannel } from "../realtime.js";
 import { useAsync } from "../useAsync.js";
 import { useSession } from "../useSession.js";
 
 const SPACE_ID = "space_artist_g";
+const DEFAULT_CHANNEL = "ch_chat";
 
 const PLUGINS: { action: CreativeAction; label: string }[] = [
   { action: "image", label: "🖼️ 이미지" },
-  { action: "video_recast", label: "🎬 영상·리캐스트" },
+  { action: "video_recast", label: "🎬 영상" },
   { action: "music", label: "🎵 음악" },
   { action: "voice", label: "🎙️ 보이스" },
-  { action: "characterize", label: "🧊 캐릭터화" },
+  { action: "characterize", label: "🧊 캐릭터" },
 ];
+
+const COLORS = ["#7c5cff", "#23d6a0", "#3aa0ff", "#ffb020", "#ff5d6c"];
+const colorFor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
 export function SpaceScreen({ onExport }: { onExport: (creationId: string) => void }) {
   const user = useSession();
   const space = useAsync(() => api.getSpace(SPACE_ID), []);
-  const [activeChannel, setActiveChannel] = useState<string>("ch_image_remix");
-  const [action, setAction] = useState<CreativeAction>("image");
-  const [prompt, setPrompt] = useState("아티스트 G 컨셉, 비 내리는 네온 거리, 시네마틱 라이팅...");
+  const [activeChannel, setActiveChannel] = useState(DEFAULT_CHANNEL);
   const [posts, setPosts] = useState<Post[]>([]);
   const [creations, setCreations] = useState<Record<string, Creation>>({});
+  const [authors, setAuthors] = useState<Record<string, AuthorRef>>({});
+
+  const [mode, setMode] = useState<"chat" | "ai">("chat");
+  const [text, setText] = useState("");
+  const [action, setAction] = useState<CreativeAction>("image");
+  const [prompt, setPrompt] = useState("아티스트 G 컨셉, 비 내리는 네온 거리...");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "err" | "ok"; text: string } | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
+
+  function upsert(post: Post, author?: AuthorRef | null, creation?: Creation | null) {
+    if (author) setAuthors((a) => ({ ...a, [author.user_id]: author }));
+    if (creation) setCreations((c) => ({ ...c, [creation.creation_id]: creation }));
+    setPosts((p) => {
+      if (p.some((x) => x.post_id === post.post_id)) return p;
+      if (post.creation_id && p.some((x) => x.creation_id === post.creation_id)) return p;
+      return [...p, post];
+    });
+  }
 
   async function loadFeed(channelId: string) {
     try {
-      const { posts, creations } = await api.getChannelPosts(channelId);
+      const { posts, creations, authors } = await api.getChannelPosts(channelId);
       setPosts(posts);
       setCreations(Object.fromEntries(creations.map((c) => [c.creation_id, c])));
+      setAuthors(authors);
     } catch {
       setPosts([]);
       setCreations({});
@@ -41,32 +61,37 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
     void loadFeed(activeChannel);
   }, [activeChannel]);
 
-  /** Append a post unless one for the same creation already exists (dedupe live echo). */
-  function upsertPost(post: Post, creation?: Creation) {
-    if (creation) setCreations((c) => ({ ...c, [creation.creation_id]: creation }));
-    setPosts((p) => {
-      if (post.creation_id && p.some((x) => x.creation_id === post.creation_id)) return p;
-      return [...p, post];
-    });
-  }
-
-  // Subscribe to live channel events; other users' generations appear in real time.
   useEffect(() => {
     if (!user) return;
-    const unsub = subscribeChannel(activeChannel, (e) => {
+    return subscribeChannel(activeChannel, (e) => {
       if (e.type === "post.created") {
-        upsertPost(e.post as Post, e.creation as Creation);
+        upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
       }
     });
-    return unsub;
   }, [activeChannel, user]);
+
+  useEffect(() => {
+    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight });
+  }, [posts]);
+
+  async function sendChat() {
+    const t = text.trim();
+    if (!t) return;
+    setText("");
+    try {
+      await api.sendMessage(activeChannel, t); // echoes back via WS subscription
+    } catch (e) {
+      setMsg({ kind: "err", text: `전송 실패: ${(e as Error).message}` });
+      setText(t);
+    }
+  }
 
   async function generate() {
     setBusy(true);
     setMsg(null);
     try {
       const { creation } = await api.generate(SPACE_ID, { action, prompt, channel_id: activeChannel });
-      upsertPost(
+      upsert(
         {
           post_id: `local_${creation.creation_id}`,
           channel_id: activeChannel,
@@ -75,9 +100,10 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
           creation_id: creation.creation_id,
           created_at: creation.created_at,
         },
+        user ? { user_id: user.user_id, display_name: user.display_name, role: user.role } : null,
         creation,
       );
-      setMsg({ kind: "ok", text: "생성 완료 — 출처 IP·라이선스·AI 표시 메타데이터가 부착되었습니다. (실시간 브로드캐스트)" });
+      setMsg({ kind: "ok", text: "생성 완료 — 채널에 공유되었습니다 (출처·AI 표시 부착)." });
     } catch (e) {
       const reason = e instanceof ApiError ? e.message : "unknown";
       setMsg({
@@ -86,7 +112,7 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
           reason === "hard_limit"
             ? "🚫 금지선(Hard Limit)에 의해 생성이 차단되었습니다."
             : reason === "not_allowed"
-              ? "이 IP는 해당 행위를 허용하지 않습니다 (Consent Matrix)."
+              ? "이 IP는 해당 행위를 허용하지 않습니다."
               : `생성 실패: ${reason}`,
       });
     } finally {
@@ -96,12 +122,13 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
 
   const channels = space.data?.channels ?? [];
   const grouped = groupChannels(channels);
+  const activeName = channels.find((c) => c.channel_id === activeChannel)?.name ?? "채널";
 
   return (
     <section>
       <div className="scr-head">
-        <h2>채널 + AI 창작 캔버스</h2>
-        <p>Discord형 채널 안에서 바로 AI 플러그인을 호출해 창작합니다. 내부 공유는 무제한·무수수료(G1·G2).</p>
+        <h2>커뮤니티 · 채널</h2>
+        <p>팬·크리에이터가 모여 실시간으로 대화하고, 같은 자리에서 AI로 창작합니다.</p>
       </div>
 
       {space.error && <div className="banner err">API 연결 실패: {space.error}</div>}
@@ -136,60 +163,42 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
         <div className="main">
           <div className="main-head">
             <div className="t">
-              # {channels.find((c) => c.channel_id === activeChannel)?.name ?? "채널"}{" "}
-              <span>· IP 소유자가 허용한 행위만 생성 가능</span>
+              # {activeName} <span>· {posts.length} 메시지</span>
             </div>
-            <span className="pill g">G1·G2 무료 구간</span>
+            <span className="pill g">실시간</span>
           </div>
 
-          <div className="feed">
-            {posts.length === 0 && <div className="hint">아직 게시물이 없습니다. 아래에서 생성해보세요.</div>}
+          <div className="feed" ref={feedRef}>
+            {posts.length === 0 && <div className="hint">아직 메시지가 없습니다. 첫 메시지를 남겨보세요 👋</div>}
             {posts.map((p) => {
               const cr = p.creation_id ? creations[p.creation_id] : undefined;
+              const author = authors[p.author_id];
+              const name = author?.display_name ?? p.author_id;
               return (
                 <div className="post" key={p.post_id}>
-                  <div className="av">민</div>
+                  <div className="av" style={{ background: colorFor(p.author_id) }}>
+                    {(name?.[0] ?? "?").toUpperCase()}
+                  </div>
                   <div className="body">
                     <div className="meta">
-                      <b>민지</b>
-                      <span className="pill p">크리에이터</span>
+                      <b>{name}</b>
+                      {author?.role && <span className="pill p">{roleLabel(author.role)}</span>}
                       <span className="time">{new Date(p.created_at).toLocaleTimeString("ko-KR")}</span>
                     </div>
                     {p.text && <div className="txt">{p.text}</div>}
                     {cr && (
                       <div className="card">
                         <div className="thumb">
-                          [{cr.action} 생성 미리보기]
+                          [{cr.action} 생성]
                           <span className="wm">🤖 AI 생성 · REMIX HUB</span>
                         </div>
                         <div className="cbody">
-                          <div className="ct">{cr.creation_id}</div>
                           <div className="cmeta">
                             <span>🧩 {cr.plugin_id}</span>
-                            <span>출처 IP: 아티스트 G</span>
                             <span className="pill g">{cr.status}</span>
                           </div>
                         </div>
                         <div className="cact">
-                          <button
-                            className="btn gho"
-                            disabled={!user}
-                            onClick={async () => {
-                              try {
-                                await api.createListing({
-                                  kind: "creation",
-                                  ref_id: cr.creation_id,
-                                  title: cr.creation_id,
-                                  price: 100_000,
-                                });
-                                setMsg({ kind: "ok", text: "마켓에 ₩100,000으로 판매 등록했습니다 (⑥ 마켓플레이스)." });
-                              } catch (e) {
-                                setMsg({ kind: "err", text: `판매 등록 실패: ${(e as Error).message}` });
-                              }
-                            }}
-                          >
-                            판매 등록
-                          </button>
                           <button className="btn pri" onClick={() => onExport(cr.creation_id)}>
                             외부 반출 →
                           </button>
@@ -203,30 +212,54 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
           </div>
 
           <div className="composer">
-            <div className="plugbar">
-              {PLUGINS.map((pl) => (
-                <div
-                  key={pl.action}
-                  className={`plug ${pl.action === action ? "on" : ""}`}
-                  onClick={() => setAction(pl.action)}
-                >
-                  {pl.label}
-                </div>
-              ))}
-            </div>
-            <div className="inputrow">
-              <span>✏️</span>
-              <input value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-              <button className="gen" onClick={generate} disabled={busy || !user}>
-                {busy ? "생성 중…" : "생성 ✨"}
+            <div className="composer-tabs">
+              <button className={mode === "chat" ? "on" : ""} onClick={() => setMode("chat")}>
+                💬 채팅
+              </button>
+              <button className={mode === "ai" ? "on" : ""} onClick={() => setMode("ai")}>
+                ✨ AI 생성
               </button>
             </div>
-            {!user && <div className="banner err">생성하려면 상단에서 데모 로그인하세요.</div>}
+
+            {mode === "chat" ? (
+              <div className="chatinput">
+                <span>💬</span>
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                  placeholder={`#${activeName} 에 메시지 보내기`}
+                />
+                <button className="gen" onClick={sendChat}>
+                  보내기
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="plugbar">
+                  {PLUGINS.map((pl) => (
+                    <div
+                      key={pl.action}
+                      className={`plug ${pl.action === action ? "on" : ""}`}
+                      onClick={() => setAction(pl.action)}
+                    >
+                      {pl.label}
+                    </div>
+                  ))}
+                </div>
+                <div className="inputrow">
+                  <span>✏️</span>
+                  <input value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+                  <button className="gen" onClick={generate} disabled={busy}>
+                    {busy ? "생성 중…" : "생성 ✨"}
+                  </button>
+                </div>
+                <div className="hint">
+                  🔒 생성물에는 출처 IP·라이선스·AI 표시가 자동 부착됩니다. 금지 맥락은 생성 단계에서 차단됩니다.
+                </div>
+              </>
+            )}
             {msg && <div className={`banner ${msg.kind}`}>{msg.text}</div>}
-            <div className="hint">
-              🔒 생성물은 자동으로 출처 IP·라이선스·AI 표시 메타데이터가 부착됩니다. 금지 맥락(성적·허위·협박)은
-              생성 단계에서 차단됩니다.
-            </div>
           </div>
         </div>
       </div>
@@ -236,12 +269,16 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
 
 function groupChannels(channels: Channel[]) {
   const titles: Record<Channel["type"], string> = {
-    creation: "창작 채널",
     community: "커뮤니티",
+    creation: "창작 채널",
     market: "마켓",
   };
-  const order: Channel["type"][] = ["creation", "community", "market"];
+  const order: Channel["type"][] = ["community", "creation", "market"];
   return order
     .map((type) => ({ title: titles[type], items: channels.filter((c) => c.type === type) }))
     .filter((g) => g.items.length > 0);
+}
+
+function roleLabel(role: AuthorRef["role"]): string {
+  return role === "OWNER" ? "IP 소유자" : role === "CREATOR" ? "크리에이터" : role === "BUYER" ? "바이어" : "관리자";
 }

@@ -372,4 +372,24 @@ td b { font-weight: 700; }
 .authbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mut); }
 .authbar .who { font-weight: 600; }
 
+/* Auth gate */
+.authwrap { min-height: 100vh; display: grid; place-items: center; padding: 22px; }
+.authcard { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.authtabs { display: flex; gap: 6px; margin-bottom: 16px; }
+.authtabs button { flex: 1; background: var(--panel2); color: var(--mut); border: 1px solid var(--line); padding: 9px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.authtabs button.on { background: linear-gradient(135deg, var(--acc), #6a4cf0); color: #fff; border-color: transparent; }
+.authform { display: flex; flex-direction: column; gap: 11px; }
+.authform label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--mut); font-weight: 600; }
+.authform input, .authform select { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--txt); font-size: 13px; outline: none; }
+.authform input:focus, .authform select:focus { border-color: var(--acc); }
+.authdemo { margin-top: 14px; display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--mut); }
+.authdemo button { background: var(--panel3); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 5px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+
+/* Chat */
+.chatinput { display: flex; gap: 8px; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; }
+.chatinput input { flex: 1; background: none; border: none; color: var(--txt); font-size: 13px; outline: none; }
+.composer-tabs { display: flex; gap: 6px; margin-bottom: 9px; }
+.composer-tabs button { background: var(--panel2); color: var(--mut); border: 1px solid var(--line); border-radius: 9px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.composer-tabs button.on { border-color: var(--acc); color: #fff; background: rgba(124, 92, 255, 0.12); }
+
 .foot { text-align: center; color: var(--mut); font-size: 11px; margin-top: 18px; }

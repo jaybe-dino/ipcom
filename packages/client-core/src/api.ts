@@ -36,6 +36,12 @@ export interface PluginInventory {
   plugins: { id: string; capabilities: string[] }[];
 }
 
+export interface AuthorRef {
+  user_id: string;
+  display_name?: string;
+  role: User["role"];
+}
+
 export type Api = ReturnType<typeof createApi>;
 
 /**
@@ -101,7 +107,14 @@ export function createApi(cfg: ClientConfig) {
     listSpaces: () => req<{ spaces: Space[] }>("/spaces"),
     getSpace: (id: string) => req<{ space: Space; ip: IP; channels: Channel[] }>(`/spaces/${id}`),
     getChannelPosts: (id: string) =>
-      req<{ posts: Post[]; creations: Creation[] }>(`/channels/${id}/posts`),
+      req<{ posts: Post[]; creations: Creation[]; authors: Record<string, AuthorRef> }>(
+        `/channels/${id}/posts`,
+      ),
+    sendMessage: (channelId: string, text: string) =>
+      req<{ post: Post }>(`/channels/${channelId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      }),
     plugins: () => req<PluginInventory>("/plugins"),
 
     generate: (

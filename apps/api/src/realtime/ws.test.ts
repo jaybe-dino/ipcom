@@ -67,4 +67,37 @@ describe("Realtime channel WebSocket", () => {
     expect(events[0].type).toBe("hello");
     ws.close();
   });
+
+  it("broadcasts a chat message with author info to channel subscribers", async () => {
+    const ws = new WebSocket(`${wsBase}/ws/channels/ch_chat?token=${token}`);
+    const gotMsg = new Promise<any>((resolve) => {
+      ws.onmessage = (ev) => {
+        const data = JSON.parse(ev.data as string);
+        if (data.type === "post.created") resolve(data);
+      };
+    });
+    await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+
+    const res = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text: "안녕하세요 👋" }),
+    });
+    expect(res.status).toBe(201);
+
+    const evt = await gotMsg;
+    expect(evt.post.text).toBe("안녕하세요 👋");
+    expect(evt.post.creation_id).toBeNull();
+    expect(evt.author.display_name).toBe("민지");
+    ws.close();
+  });
+
+  it("rejects an empty chat message", async () => {
+    const res = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text: "   " }),
+    });
+    expect(res.status).toBe(400);
+  });
 });
