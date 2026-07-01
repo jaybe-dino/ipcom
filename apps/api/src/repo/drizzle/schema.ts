@@ -173,6 +173,18 @@ export const dmThreads = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.user_id, t.channel_id] }) }),
 );
 
+export const notifications = pgTable("notifications", {
+  notification_id: text("notification_id").primaryKey(),
+  user_id: text("user_id").notNull(),
+  type: text("type").$type<"mention" | "reply" | "dm">().notNull(),
+  actor_id: text("actor_id").notNull(),
+  channel_id: text("channel_id").notNull(),
+  post_id: text("post_id").notNull(),
+  text: text("text").notNull(),
+  read: boolean("read").notNull().default(false),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
 export const schema = {
   users,
   ips,
@@ -188,4 +200,5 @@ export const schema = {
   memberships,
   reactions,
   dmThreads,
+  notifications,
 };

@@ -6,6 +6,7 @@ import type {
   IP,
   LedgerEntry,
   Listing,
+  Notification,
   Order,
   Post,
   PromptTemplate,
@@ -124,6 +125,11 @@ export function createApi(cfg: ClientConfig) {
     // Direct messages
     openDm: (userId: string) => req<{ channel_id: string; peer: User }>(`/dm/${userId}`, { method: "POST" }),
     myDms: () => req<{ dms: { channel_id: string; peer: User }[] }>("/me/dms"),
+
+    // Notifications
+    notifications: () => req<{ notifications: Notification[]; unread: number }>("/me/notifications"),
+    unreadCount: () => req<{ count: number }>("/me/notifications/unread_count"),
+    markNotificationsRead: () => req<{ ok: boolean }>("/me/notifications/read", { method: "POST" }),
     getChannelPosts: (id: string) =>
       req<{
         posts: Post[];

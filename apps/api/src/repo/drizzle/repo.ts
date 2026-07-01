@@ -10,6 +10,7 @@ import {
   type LedgerEntry,
   type Listing,
   type Membership,
+  type Notification,
   type Order,
   type Post,
   type PromptTemplate,
@@ -31,6 +32,7 @@ import {
   ledgerEntries,
   listings,
   memberships,
+  notifications,
   orders,
   posts,
   promptTemplates,
@@ -112,6 +114,11 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     sql`CREATE TABLE IF NOT EXISTS dm_threads (
       user_id text NOT NULL, channel_id text NOT NULL, peer_id text NOT NULL,
       created_at timestamptz NOT NULL, PRIMARY KEY (user_id, channel_id)
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS notifications (
+      notification_id text PRIMARY KEY, user_id text NOT NULL, type text NOT NULL,
+      actor_id text NOT NULL, channel_id text NOT NULL, post_id text NOT NULL,
+      text text NOT NULL, read boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL
     )`,
     // Additive columns for existing deployments (idempotent).
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
@@ -353,6 +360,28 @@ export class DrizzleRepo implements Repo {
       .from(dmThreads)
       .where(eq(dmThreads.user_id, userId));
     return rows;
+  }
+
+  async addNotification(n: Notification) {
+    await this.db.insert(notifications).values(n).onConflictDoNothing();
+  }
+  async listNotifications(userId: string, limit: number): Promise<Notification[]> {
+    return this.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.user_id, userId))
+      .orderBy(desc(notifications.created_at))
+      .limit(limit);
+  }
+  async unreadCount(userId: string): Promise<number> {
+    const rows = await this.db
+      .select({ id: notifications.notification_id })
+      .from(notifications)
+      .where(and(eq(notifications.user_id, userId), eq(notifications.read, false)));
+    return rows.length;
+  }
+  async markNotificationsRead(userId: string) {
+    await this.db.update(notifications).set({ read: true }).where(eq(notifications.user_id, userId));
   }
 
   async getCreation(id: string) {

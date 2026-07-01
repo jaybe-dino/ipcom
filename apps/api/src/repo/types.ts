@@ -8,6 +8,7 @@ import type {
   LedgerEventType,
   Listing,
   Membership,
+  Notification,
   Order,
   Post,
   PromptTemplate,
@@ -62,6 +63,12 @@ export interface Repo {
   // Direct messages (1:1)
   upsertDmThread(userId: string, channelId: string, peerId: string): Promise<void>;
   listDmThreads(userId: string): Promise<{ channel_id: string; peer_id: string }[]>;
+
+  // Notifications
+  addNotification(n: Notification): Promise<void>;
+  listNotifications(userId: string, limit: number): Promise<Notification[]>;
+  unreadCount(userId: string): Promise<number>;
+  markNotificationsRead(userId: string): Promise<void>;
 
   // Creations
   getCreation(id: string): Promise<Creation | null>;

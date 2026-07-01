@@ -120,6 +120,19 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
 
   app.get("/me/dms", auth(), async (req) => ({ dms: await community.listDms(uid(req)) }));
 
+  // --- Notifications ---
+  app.get("/me/notifications", auth(), async (req) => ({
+    notifications: await repo.listNotifications(uid(req), 30),
+    unread: await repo.unreadCount(uid(req)),
+  }));
+  app.get("/me/notifications/unread_count", auth(), async (req) => ({
+    count: await repo.unreadCount(uid(req)),
+  }));
+  app.post("/me/notifications/read", auth(), async (req) => {
+    await repo.markNotificationsRead(uid(req));
+    return { ok: true };
+  });
+
   app.get("/channels/:id/posts", async (req, reply) => {
     const { id } = req.params as { id: string };
     // DM channels are private: only the two participants may read.

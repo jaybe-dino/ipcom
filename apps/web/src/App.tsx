@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AuthBar } from "./components/AuthBar.js";
+import { NotificationBell } from "./components/NotificationBell.js";
 import { useSession } from "./useSession.js";
 import { AuthScreen } from "./screens/AuthScreen.js";
 import { ConsentScreen } from "./screens/ConsentScreen.js";
@@ -54,7 +55,10 @@ export function App() {
             <div className="tag">IP × AI 2차창작 커뮤니티</div>
           </div>
         </div>
-        <AuthBar />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <NotificationBell />
+          <AuthBar />
+        </div>
       </div>
 
       <div className="nav">

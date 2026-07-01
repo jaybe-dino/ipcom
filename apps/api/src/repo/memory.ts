@@ -8,6 +8,7 @@ import {
   type LedgerEntry,
   type Listing,
   type Membership,
+  type Notification,
   type Order,
   type Post,
   type PromptTemplate,
@@ -39,6 +40,7 @@ export class MemoryRepo implements Repo {
   private reactions = new Map<string, Reaction>();
   /** user_id → (channel_id → peer_id) for DM conversations. */
   private dmThreads = new Map<string, Map<string, string>>();
+  private notifications: Notification[] = [];
   private ledger = new LicenseLedger();
 
   constructor(seed = true) {
@@ -185,6 +187,22 @@ export class MemoryRepo implements Repo {
       channel_id,
       peer_id,
     }));
+  }
+
+  async addNotification(n: Notification) {
+    this.notifications.push(n);
+  }
+  async listNotifications(userId: string, limit: number) {
+    return this.notifications
+      .filter((n) => n.user_id === userId)
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      .slice(0, limit);
+  }
+  async unreadCount(userId: string) {
+    return this.notifications.filter((n) => n.user_id === userId && !n.read).length;
+  }
+  async markNotificationsRead(userId: string) {
+    for (const n of this.notifications) if (n.user_id === userId) n.read = true;
   }
 
   async getCreation(id: string) {

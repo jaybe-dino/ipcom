@@ -133,6 +133,17 @@ body {
 .member:hover .dm-btn { opacity: 1; }
 .member .dm-btn:hover { color: var(--acc); }
 .edited { color: var(--mut); font-size: 10.5px; }
+
+/* Notification bell */
+.bell-wrap { position: relative; }
+.bell { position: relative; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; cursor: pointer; font-size: 15px; }
+.bell-badge { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px; padding: 1px 5px; }
+.bell-menu { position: absolute; right: 0; top: 42px; width: 300px; max-height: 380px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.bell-head { padding: 12px 14px; font-weight: 800; border-bottom: 1px solid var(--line); }
+.bell-empty { padding: 16px 14px; color: var(--mut); font-size: 12.5px; }
+.bell-item { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.bell-item.unread { background: rgba(124,92,255,.07); }
+.bell-text { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail {
   background: #0b0c10;
   padding: 12px 0;

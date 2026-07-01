@@ -7,6 +7,7 @@ import {
   type Creation,
   type CreativeAction,
   type ExportRequest,
+  type NotificationType,
   type Post,
   type UseType,
 } from "@remix-hub/core";
@@ -129,7 +130,53 @@ export class RemixService {
     await this.repo.createPost(post);
     const author = await this.repo.getUser(params.authorId);
     this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, author });
+    await this.notify(post);
     return { ok: true, post };
+  }
+
+  /** Create notifications for mentions, replies, and DMs triggered by a message. */
+  private async notify(post: Post): Promise<void> {
+    const text = post.text ?? "";
+    const actor = post.author_id;
+    const recipients = new Map<string, NotificationType>();
+
+    if (post.channel_id.startsWith("dm_")) {
+      for (const p of post.channel_id.slice(3).split("__")) {
+        if (p !== actor) recipients.set(p, "dm");
+      }
+    } else {
+      const tokens = [...text.matchAll(/@(\S+)/g)].map((m) => m[1]!);
+      if (tokens.length) {
+        const channel = await this.repo.getChannel(post.channel_id);
+        if (channel) {
+          const members = await this.repo.listMembers(channel.space_id);
+          for (const t of tokens) {
+            const hit = members.find((u) => u.user_id === t || u.display_name === t);
+            if (hit && !recipients.has(hit.user_id)) recipients.set(hit.user_id, "mention");
+          }
+        }
+      }
+    }
+
+    if (post.reply_to) {
+      const parent = await this.repo.getPost(post.reply_to);
+      if (parent && !recipients.has(parent.author_id)) recipients.set(parent.author_id, "reply");
+    }
+
+    recipients.delete(actor);
+    for (const [userId, type] of recipients) {
+      await this.repo.addNotification({
+        notification_id: newId("ntf"),
+        user_id: userId,
+        type,
+        actor_id: actor,
+        channel_id: post.channel_id,
+        post_id: post.post_id,
+        text: text.slice(0, 80),
+        read: false,
+        created_at: now(),
+      });
+    }
   }
 
   /** Edit a message (author only). */
