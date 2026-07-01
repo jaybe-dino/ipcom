@@ -13,7 +13,8 @@ export interface ChannelEvent {
     | "creation.updated"
     | "export.updated"
     | "reaction.updated"
-    | "presence.updated";
+    | "presence.updated"
+    | "typing.updated";
   channel_id: string;
   [key: string]: unknown;
 }

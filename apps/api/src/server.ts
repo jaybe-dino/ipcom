@@ -205,6 +205,19 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     return { deleted: true };
   });
 
+  // Typing indicator (ephemeral, broadcast only).
+  app.post("/channels/:id/typing", auth(), async (req) => {
+    const { id } = req.params as { id: string };
+    const u = await repo.getUser(uid(req));
+    bus.publish({
+      type: "typing.updated",
+      channel_id: id,
+      user_id: uid(req),
+      display_name: u?.display_name ?? uid(req),
+    });
+    return { ok: true };
+  });
+
   // Toggle an emoji reaction on a post.
   app.post("/posts/:id/reactions", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };

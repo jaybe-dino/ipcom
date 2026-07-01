@@ -155,6 +155,32 @@ describe("Realtime channel WebSocket", () => {
     expect(posts.posts.some((p: { post_id: string }) => p.post_id === postId)).toBe(false);
   });
 
+  it("broadcasts a typing indicator to channel subscribers", async () => {
+    const ws = new WebSocket(`${wsBase}/ws/channels/ch_chat?token=${token}`);
+    const gotTyping = new Promise<any>((resolve) => {
+      ws.onmessage = (ev) => {
+        const d = JSON.parse(ev.data as string);
+        if (d.type === "typing.updated") resolve(d);
+      };
+    });
+    await new Promise<void>((r) => (ws.onopen = () => r()));
+    // Another user signals typing.
+    const owner = (
+      await fetch(`${baseUrl}/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "owner@remixhub.dev", password: "password" }),
+      }).then((r) => r.json())
+    ).token;
+    await fetch(`${baseUrl}/channels/ch_chat/typing`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${owner}` },
+    });
+    const evt = await gotTyping;
+    expect(evt.display_name).toBe("Artist G (소속사)");
+    ws.close();
+  });
+
   it("rejects an empty chat message", async () => {
     const res = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
       method: "POST",

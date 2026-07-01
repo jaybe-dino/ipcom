@@ -37,6 +37,9 @@ export function SpaceScreen({
   const [reactions, setReactions] = useState<Record<string, ReactionSummary[]>>({});
   const [replyTo, setReplyTo] = useState<Post | null>(null);
   const [members, setMembers] = useState<AuthorRef[]>([]);
+  const [typing, setTyping] = useState<Record<string, string>>({}); // user_id → display_name
+  const lastTypingSent = useRef(0);
+  const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const [mode, setMode] = useState<"chat" | "ai">("chat");
   const [text, setText] = useState("");
@@ -92,6 +95,15 @@ export function SpaceScreen({
     void api.react(postId, emoji); // live echo updates state via subscription
   }
 
+  function onType(v: string) {
+    setText(v);
+    const t = Date.now();
+    if (activeChannel && t - lastTypingSent.current > 2500) {
+      lastTypingSent.current = t;
+      void api.typing(activeChannel);
+    }
+  }
+
   // Pick a default channel once the space's channels load (or space changes).
   const channels = space.data?.channels ?? [];
   useEffect(() => {
@@ -132,6 +144,17 @@ export function SpaceScreen({
         setPosts((prev) => prev.filter((p) => p.post_id !== e.post_id));
       } else if (e.type === "presence.updated") {
         loadMembers();
+      } else if (e.type === "typing.updated") {
+        const uid2 = e.user_id as string;
+        if (uid2 === user?.user_id) return;
+        setTyping((t) => ({ ...t, [uid2]: e.display_name as string }));
+        clearTimeout(typingTimers.current[uid2]);
+        typingTimers.current[uid2] = setTimeout(() => {
+          setTyping((t) => {
+            const { [uid2]: _drop, ...rest } = t;
+            return rest;
+          });
+        }, 4000);
       }
     });
   }, [activeChannel, user]);
@@ -355,6 +378,9 @@ export function SpaceScreen({
           </div>
 
           <div className="composer">
+            {Object.keys(typing).length > 0 && (
+              <div className="typing">✍️ {Object.values(typing).join(", ")} 님이 입력 중…</div>
+            )}
             <div className="composer-tabs">
               <button className={mode === "chat" ? "on" : ""} onClick={() => setMode("chat")}>
                 💬 채팅
@@ -376,7 +402,7 @@ export function SpaceScreen({
                   <span>💬</span>
                   <input
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => onType(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendChat()}
                     placeholder={`#${activeName} 에 메시지 보내기`}
                   />
