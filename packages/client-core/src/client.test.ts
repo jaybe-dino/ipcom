@@ -68,6 +68,16 @@ describe("createApi", () => {
 
     await expect(api.getSpace("missing")).rejects.toMatchObject({ status: 404, message: "creation_not_found" });
   });
+
+  it("clears the session on a 401 (expired token → re-login)", async () => {
+    const session = new Session();
+    session.set({ token: "expired", user: { user_id: "u", role: "CREATOR", kyc_status: "none", age_verified: false } });
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: "unauthorized" }, false, 401));
+    const api = createApi({ session, baseUrl: "http://x", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await expect(api.listSpaces()).rejects.toMatchObject({ status: 401 });
+    expect(session.token).toBeNull(); // auto-logged-out
+  });
 });
 
 describe("channelWsUrl", () => {

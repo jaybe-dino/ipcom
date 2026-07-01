@@ -16,7 +16,7 @@ export function registerAuth(app: FastifyInstance, repo: Repo): void {
   // app.jwt become available at handler time (post-ready).
   void app.register(fastifyJwt, {
     secret: process.env.JWT_SECRET ?? DEV_SECRET,
-    sign: { expiresIn: "12h" },
+    sign: { expiresIn: "7d" },
   });
 
   // Verify the bearer token and attach claims to the request.

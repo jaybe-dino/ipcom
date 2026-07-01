@@ -74,6 +74,9 @@ export function createApi(cfg: ClientConfig) {
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
+      // Expired/invalid session: clear it so the app returns to login instead
+      // of failing every action with a cryptic error.
+      if (res.status === 401 && bearer) cfg.session.clear();
       throw new ApiError(res.status, body.error ?? res.statusText);
     }
     return res.json() as Promise<T>;
