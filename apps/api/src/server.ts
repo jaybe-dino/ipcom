@@ -147,7 +147,11 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
         return reply.code(403).send({ error: "not_a_participant" });
       }
     }
-    const posts = await repo.listPosts(id);
+    const q = req.query as { limit?: string; before?: string };
+    const { posts, hasMore } = await repo.listPosts(id, {
+      limit: q.limit ? Number(q.limit) : undefined,
+      before: q.before,
+    });
     const creations = (
       await Promise.all(posts.map((p) => (p.creation_id ? repo.getCreation(p.creation_id) : null)))
     ).filter(Boolean);
@@ -168,7 +172,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
       posts.map((p) => p.post_id),
       viewerId,
     );
-    return { posts, creations, authors, reactions };
+    return { posts, creations, authors, reactions, hasMore };
   });
 
   // Community chat: post a text message (optionally a reply); broadcast live.

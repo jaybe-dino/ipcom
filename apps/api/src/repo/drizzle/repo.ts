@@ -18,7 +18,7 @@ import {
   type Space,
   type User,
 } from "@remix-hub/core";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { newId, now } from "../../ids.js";
 import { seedData } from "../seed.js";
@@ -267,8 +267,20 @@ export class DrizzleRepo implements Repo {
       .values(channel)
       .onConflictDoUpdate({ target: channels.channel_id, set: channel });
   }
-  async listPosts(channelId: string): Promise<Post[]> {
-    return (await this.db.select().from(posts).where(eq(posts.channel_id, channelId))).map(rowToPost);
+  async listPosts(channelId: string, opts: { limit?: number; before?: string } = {}) {
+    const limit = opts.limit ?? 50;
+    const where = opts.before
+      ? and(eq(posts.channel_id, channelId), lt(posts.created_at, opts.before))
+      : eq(posts.channel_id, channelId);
+    const rows = await this.db
+      .select()
+      .from(posts)
+      .where(where)
+      .orderBy(desc(posts.created_at))
+      .limit(limit + 1);
+    const hasMore = rows.length > limit;
+    const page = rows.slice(0, limit).reverse(); // ascending
+    return { posts: page.map(rowToPost), hasMore };
   }
   async getPost(id: string): Promise<Post | null> {
     const r = await this.db.select().from(posts).where(eq(posts.post_id, id)).limit(1);

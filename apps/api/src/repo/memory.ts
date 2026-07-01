@@ -116,8 +116,14 @@ export class MemoryRepo implements Repo {
   async saveChannel(channel: Channel) {
     this.channels.set(channel.channel_id, channel);
   }
-  async listPosts(channelId: string) {
-    return [...this.posts.values()].filter((p) => p.channel_id === channelId);
+  async listPosts(channelId: string, opts: { limit?: number; before?: string } = {}) {
+    const limit = opts.limit ?? 50;
+    let arr = [...this.posts.values()]
+      .filter((p) => p.channel_id === channelId)
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    if (opts.before) arr = arr.filter((p) => p.created_at < opts.before!);
+    const hasMore = arr.length > limit;
+    return { posts: arr.slice(Math.max(0, arr.length - limit)), hasMore };
   }
   async getPost(id: string) {
     return this.posts.get(id) ?? null;

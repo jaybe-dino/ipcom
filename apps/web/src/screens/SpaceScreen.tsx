@@ -37,6 +37,9 @@ export function SpaceScreen({
   const [reactions, setReactions] = useState<Record<string, ReactionSummary[]>>({});
   const [replyTo, setReplyTo] = useState<Post | null>(null);
   const [members, setMembers] = useState<AuthorRef[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const skipScroll = useRef(false);
   const [typing, setTyping] = useState<Record<string, string>>({}); // user_id → display_name
   const lastTypingSent = useRef(0);
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -61,15 +64,39 @@ export function SpaceScreen({
 
   async function loadFeed(channelId: string) {
     try {
-      const { posts, creations, authors, reactions } = await api.getChannelPosts(channelId);
+      const { posts, creations, authors, reactions, hasMore } = await api.getChannelPosts(channelId, {
+        limit: 50,
+      });
       setPosts(posts);
       setCreations(Object.fromEntries(creations.map((c) => [c.creation_id, c])));
       setAuthors(authors);
       setReactions(reactions);
+      setHasMore(hasMore);
     } catch {
       setPosts([]);
       setCreations({});
       setReactions({});
+      setHasMore(false);
+    }
+  }
+
+  async function loadOlder() {
+    const oldest = posts[0];
+    if (!oldest || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const res = await api.getChannelPosts(activeChannel, { limit: 50, before: oldest.created_at });
+      skipScroll.current = true; // prepending — keep viewport
+      setCreations((c) => ({ ...c, ...Object.fromEntries(res.creations.map((x) => [x.creation_id, x])) }));
+      setAuthors((a) => ({ ...a, ...res.authors }));
+      setReactions((r) => ({ ...r, ...res.reactions }));
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.post_id));
+        return [...res.posts.filter((p) => !seen.has(p.post_id)), ...prev];
+      });
+      setHasMore(res.hasMore);
+    } finally {
+      setLoadingOlder(false);
     }
   }
 
@@ -160,6 +187,10 @@ export function SpaceScreen({
   }, [activeChannel, user]);
 
   useEffect(() => {
+    if (skipScroll.current) {
+      skipScroll.current = false;
+      return;
+    }
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight });
   }, [posts]);
 
@@ -280,6 +311,11 @@ export function SpaceScreen({
           </div>
 
           <div className="feed" ref={feedRef}>
+            {hasMore && (
+              <button className="load-older" onClick={loadOlder} disabled={loadingOlder}>
+                {loadingOlder ? "불러오는 중…" : "↑ 이전 메시지 더보기"}
+              </button>
+            )}
             {posts.length === 0 && <div className="hint">아직 메시지가 없습니다. 첫 메시지를 남겨보세요 👋</div>}
             {posts.map((p) => {
               const cr = p.creation_id ? creations[p.creation_id] : undefined;

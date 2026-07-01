@@ -43,7 +43,11 @@ export interface Repo {
   listChannels(spaceId: string): Promise<Channel[]>;
   getChannel(id: string): Promise<Channel | null>;
   saveChannel(channel: Channel): Promise<void>;
-  listPosts(channelId: string): Promise<Post[]>;
+  /** Newest `limit` posts (ascending), optionally older than the `before` cursor. */
+  listPosts(
+    channelId: string,
+    opts?: { limit?: number; before?: string },
+  ): Promise<{ posts: Post[]; hasMore: boolean }>;
   getPost(id: string): Promise<Post | null>;
   createPost(post: Post): Promise<void>;
   updatePostText(id: string, text: string, editedAt: string): Promise<void>;

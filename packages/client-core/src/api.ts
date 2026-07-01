@@ -130,13 +130,19 @@ export function createApi(cfg: ClientConfig) {
     notifications: () => req<{ notifications: Notification[]; unread: number }>("/me/notifications"),
     unreadCount: () => req<{ count: number }>("/me/notifications/unread_count"),
     markNotificationsRead: () => req<{ ok: boolean }>("/me/notifications/read", { method: "POST" }),
-    getChannelPosts: (id: string) =>
-      req<{
+    getChannelPosts: (id: string, opts: { limit?: number; before?: string } = {}) => {
+      const qs = new URLSearchParams();
+      if (opts.limit) qs.set("limit", String(opts.limit));
+      if (opts.before) qs.set("before", opts.before);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return req<{
         posts: Post[];
         creations: Creation[];
         authors: Record<string, AuthorRef>;
         reactions: Record<string, ReactionSummary[]>;
-      }>(`/channels/${id}/posts`),
+        hasMore: boolean;
+      }>(`/channels/${id}/posts${suffix}`);
+    },
     sendMessage: (channelId: string, text: string, replyTo?: string | null) =>
       req<{ post: Post }>(`/channels/${channelId}/messages`, {
         method: "POST",

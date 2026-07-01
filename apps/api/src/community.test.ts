@@ -121,6 +121,39 @@ describe("Community structure", () => {
     expect(blocked.statusCode).toBe(403);
   });
 
+  it("paginates channel history with limit + before cursor", async () => {
+    const space = (
+      await app.inject({ method: "POST", url: "/spaces", headers: bearer(minji), payload: { name: "페이지방" } })
+    ).json().space;
+    const ch = (await app.inject({ method: "GET", url: `/spaces/${space.space_id}` })).json().channels[0];
+
+    for (let i = 1; i <= 5; i++) {
+      await app.inject({
+        method: "POST",
+        url: `/channels/${ch.channel_id}/messages`,
+        headers: bearer(minji),
+        payload: { text: `메시지 ${i}` },
+      });
+    }
+
+    const page1 = (
+      await app.inject({ method: "GET", url: `/channels/${ch.channel_id}/posts?limit=2` })
+    ).json();
+    expect(page1.posts.length).toBe(2);
+    expect(page1.hasMore).toBe(true);
+    // Ascending: last two are 메시지 4, 5.
+    expect(page1.posts[1].text).toBe("메시지 5");
+
+    const older = (
+      await app.inject({
+        method: "GET",
+        url: `/channels/${ch.channel_id}/posts?limit=2&before=${encodeURIComponent(page1.posts[0].created_at)}`,
+      })
+    ).json();
+    expect(older.posts.length).toBe(2);
+    expect(older.posts.every((p: { created_at: string }) => p.created_at < page1.posts[0].created_at)).toBe(true);
+  });
+
   it("removes membership on leave", async () => {
     const created = await app.inject({
       method: "POST",
