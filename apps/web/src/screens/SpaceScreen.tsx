@@ -272,12 +272,6 @@ export function SpaceScreen({
       {space.error && <div className="banner err">API 연결 실패: {space.error}</div>}
 
       <div className="layout">
-        <div className="rail">
-          <div className="s on">G</div>
-          <div className="div" />
-          <div className="s">+</div>
-        </div>
-
         <div className="channels">
           <div className="sp-name">
             <span>{space.data?.space.name ?? "스페이스"}</span>
