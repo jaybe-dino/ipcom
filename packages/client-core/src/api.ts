@@ -9,6 +9,7 @@ import type {
   Order,
   Post,
   PromptTemplate,
+  ReactionSummary,
   Space,
   User,
   UseType,
@@ -118,13 +119,21 @@ export function createApi(cfg: ClientConfig) {
     leaveSpace: (id: string) => req<{ left: boolean }>(`/spaces/${id}/leave`, { method: "POST" }),
     spaceMembers: (id: string) => req<{ members: AuthorRef[] }>(`/spaces/${id}/members`),
     getChannelPosts: (id: string) =>
-      req<{ posts: Post[]; creations: Creation[]; authors: Record<string, AuthorRef> }>(
-        `/channels/${id}/posts`,
-      ),
-    sendMessage: (channelId: string, text: string) =>
+      req<{
+        posts: Post[];
+        creations: Creation[];
+        authors: Record<string, AuthorRef>;
+        reactions: Record<string, ReactionSummary[]>;
+      }>(`/channels/${id}/posts`),
+    sendMessage: (channelId: string, text: string, replyTo?: string | null) =>
       req<{ post: Post }>(`/channels/${channelId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, reply_to: replyTo ?? undefined }),
+      }),
+    react: (postId: string, emoji: string) =>
+      req<{ added: boolean }>(`/posts/${postId}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
       }),
     plugins: () => req<PluginInventory>("/plugins"),
 

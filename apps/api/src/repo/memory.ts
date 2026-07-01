@@ -11,6 +11,7 @@ import {
   type Order,
   type Post,
   type PromptTemplate,
+  type Reaction,
   type Space,
   type User,
 } from "@remix-hub/core";
@@ -34,6 +35,8 @@ export class MemoryRepo implements Repo {
   private orders = new Map<string, Order>();
   /** space_id → set of member user_ids. */
   private members = new Map<string, Set<string>>();
+  /** key `${post_id}|${user_id}|${emoji}` → Reaction. */
+  private reactions = new Map<string, Reaction>();
   private ledger = new LicenseLedger();
 
   constructor(seed = true) {
@@ -112,8 +115,25 @@ export class MemoryRepo implements Repo {
   async listPosts(channelId: string) {
     return [...this.posts.values()].filter((p) => p.channel_id === channelId);
   }
+  async getPost(id: string) {
+    return this.posts.get(id) ?? null;
+  }
   async createPost(post: Post) {
     this.posts.set(post.post_id, post);
+  }
+
+  async toggleReaction(r: Reaction) {
+    const key = `${r.post_id}|${r.user_id}|${r.emoji}`;
+    if (this.reactions.has(key)) {
+      this.reactions.delete(key);
+      return { added: false };
+    }
+    this.reactions.set(key, r);
+    return { added: true };
+  }
+  async listReactions(postIds: string[]) {
+    const set = new Set(postIds);
+    return [...this.reactions.values()].filter((r) => set.has(r.post_id));
   }
 
   async addMember(m: Membership) {

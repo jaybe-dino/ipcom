@@ -13,6 +13,7 @@ import {
   type Order,
   type Post,
   type PromptTemplate,
+  type Reaction,
   type Space,
   type User,
 } from "@remix-hub/core";
@@ -32,6 +33,7 @@ import {
   orders,
   posts,
   promptTemplates,
+  reactions,
   schema,
   spaces,
   users,
@@ -102,6 +104,12 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       space_id text NOT NULL, user_id text NOT NULL, joined_at timestamptz NOT NULL,
       PRIMARY KEY (space_id, user_id)
     )`,
+    sql`CREATE TABLE IF NOT EXISTS reactions (
+      post_id text NOT NULL, user_id text NOT NULL, emoji text NOT NULL,
+      created_at timestamptz NOT NULL, PRIMARY KEY (post_id, user_id, emoji)
+    )`,
+    // Additive column for existing deployments (idempotent).
+    sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
   ];
   for (const stmt of statements) await db.execute(stmt);
 }
@@ -139,7 +147,7 @@ function rowToSpace(r: typeof spaces.$inferSelect): Space {
 }
 
 function rowToPost(r: typeof posts.$inferSelect): Post {
-  return { ...r, text: r.text ?? undefined, creation_id: r.creation_id };
+  return { ...r, text: r.text ?? undefined, creation_id: r.creation_id, reply_to: r.reply_to };
 }
 
 function rowToExport(r: typeof exportRequests.$inferSelect): ExportRequest {
@@ -243,8 +251,31 @@ export class DrizzleRepo implements Repo {
   async listPosts(channelId: string): Promise<Post[]> {
     return (await this.db.select().from(posts).where(eq(posts.channel_id, channelId))).map(rowToPost);
   }
+  async getPost(id: string): Promise<Post | null> {
+    const r = await this.db.select().from(posts).where(eq(posts.post_id, id)).limit(1);
+    return r[0] ? rowToPost(r[0]) : null;
+  }
   async createPost(post: Post) {
     await this.db.insert(posts).values(post).onConflictDoNothing();
+  }
+
+  async toggleReaction(r: Reaction): Promise<{ added: boolean }> {
+    const where = and(
+      eq(reactions.post_id, r.post_id),
+      eq(reactions.user_id, r.user_id),
+      eq(reactions.emoji, r.emoji),
+    );
+    const existing = await this.db.select().from(reactions).where(where).limit(1);
+    if (existing.length) {
+      await this.db.delete(reactions).where(where);
+      return { added: false };
+    }
+    await this.db.insert(reactions).values(r).onConflictDoNothing();
+    return { added: true };
+  }
+  async listReactions(postIds: string[]): Promise<Reaction[]> {
+    if (!postIds.length) return [];
+    return this.db.select().from(reactions).where(inArray(reactions.post_id, postIds));
   }
 
   private async refreshMemberCount(spaceId: string) {

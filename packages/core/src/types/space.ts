@@ -30,7 +30,25 @@ export interface Post {
   text?: string;
   /** Reference to a Creation rendered as a card, if any. */
   creation_id?: UUID | null;
+  /** If this post is a reply, the post it replies to. */
+  reply_to?: UUID | null;
   created_at: ISODateTime;
+}
+
+/** An emoji reaction on a post. */
+export interface Reaction {
+  post_id: UUID;
+  user_id: UUID;
+  emoji: string;
+  created_at: ISODateTime;
+}
+
+/** Aggregated reactions for a post (for display). */
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  /** Whether the requesting user reacted with this emoji. */
+  mine: boolean;
 }
 
 /** A user's membership in a space (community participation). */

@@ -1,4 +1,4 @@
-import type { AuthorRef, Channel, Creation, CreativeAction, Post } from "@remix-hub/client-core";
+import type { AuthorRef, Channel, Creation, CreativeAction, Post, ReactionSummary } from "@remix-hub/client-core";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api.js";
 import { subscribeChannel } from "../realtime.js";
@@ -16,6 +16,8 @@ const PLUGINS: { action: CreativeAction; label: string }[] = [
 const COLORS = ["#7c5cff", "#23d6a0", "#3aa0ff", "#ffb020", "#ff5d6c"];
 const colorFor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
+const PALETTE = ["🔥", "❤️", "😂", "👍", "🎉", "👏"];
+
 export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: (creationId: string) => void }) {
   const user = useSession();
   const [spaceVersion, setSpaceVersion] = useState(0);
@@ -24,6 +26,8 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
   const [posts, setPosts] = useState<Post[]>([]);
   const [creations, setCreations] = useState<Record<string, Creation>>({});
   const [authors, setAuthors] = useState<Record<string, AuthorRef>>({});
+  const [reactions, setReactions] = useState<Record<string, ReactionSummary[]>>({});
+  const [replyTo, setReplyTo] = useState<Post | null>(null);
 
   const [mode, setMode] = useState<"chat" | "ai">("chat");
   const [text, setText] = useState("");
@@ -45,14 +49,38 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
 
   async function loadFeed(channelId: string) {
     try {
-      const { posts, creations, authors } = await api.getChannelPosts(channelId);
+      const { posts, creations, authors, reactions } = await api.getChannelPosts(channelId);
       setPosts(posts);
       setCreations(Object.fromEntries(creations.map((c) => [c.creation_id, c])));
       setAuthors(authors);
+      setReactions(reactions);
     } catch {
       setPosts([]);
       setCreations({});
+      setReactions({});
     }
+  }
+
+  /** Apply a live reaction.updated event to local state. */
+  function applyReaction(postId: string, emoji: string, added: boolean, userId: string) {
+    const isMe = userId === user?.user_id;
+    setReactions((prev) => {
+      const list = [...(prev[postId] ?? [])];
+      const idx = list.findIndex((r) => r.emoji === emoji);
+      if (added) {
+        if (idx >= 0) list[idx] = { ...list[idx]!, count: list[idx]!.count + 1, mine: list[idx]!.mine || isMe };
+        else list.push({ emoji, count: 1, mine: isMe });
+      } else if (idx >= 0) {
+        const count = list[idx]!.count - 1;
+        if (count <= 0) list.splice(idx, 1);
+        else list[idx] = { ...list[idx]!, count, mine: isMe ? false : list[idx]!.mine };
+      }
+      return { ...prev, [postId]: list };
+    });
+  }
+
+  function toggleReaction(postId: string, emoji: string) {
+    void api.react(postId, emoji); // live echo updates state via subscription
   }
 
   // Pick a default channel once the space's channels load (or space changes).
@@ -75,6 +103,8 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
     return subscribeChannel(activeChannel, (e) => {
       if (e.type === "post.created") {
         upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
+      } else if (e.type === "reaction.updated") {
+        applyReaction(e.post_id as string, e.emoji as string, e.added as boolean, e.user_id as string);
       }
     });
   }, [activeChannel, user]);
@@ -87,8 +117,10 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
     const t = text.trim();
     if (!t) return;
     setText("");
+    const reply = replyTo?.post_id ?? null;
+    setReplyTo(null);
     try {
-      await api.sendMessage(activeChannel, t); // echoes back via WS subscription
+      await api.sendMessage(activeChannel, t, reply); // echoes back via WS subscription
     } catch (e) {
       setMsg({ kind: "err", text: `전송 실패: ${(e as Error).message}` });
       setText(t);
@@ -131,6 +163,8 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
 
   const grouped = groupChannels(channels);
   const activeName = channels.find((c) => c.channel_id === activeChannel)?.name ?? "채널";
+  const postsById: Record<string, Post> = Object.fromEntries(posts.map((p) => [p.post_id, p]));
+  const nameOf = (uid: string) => authors[uid]?.display_name ?? uid;
 
   async function addChannel() {
     const name = window.prompt("새 채널 이름");
@@ -211,7 +245,15 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
                       <b>{name}</b>
                       {author?.role && <span className="pill p">{roleLabel(author.role)}</span>}
                       <span className="time">{new Date(p.created_at).toLocaleTimeString("ko-KR")}</span>
+                      <button className="reply-btn" onClick={() => setReplyTo(p)}>
+                        답글
+                      </button>
                     </div>
+                    {p.reply_to && postsById[p.reply_to] && (
+                      <div className="quote">
+                        ↩ {nameOf(postsById[p.reply_to]!.author_id)}: {postsById[p.reply_to]!.text?.slice(0, 60)}
+                      </div>
+                    )}
                     {p.text && <div className="txt">{p.text}</div>}
                     {cr && (
                       <div className="card">
@@ -232,6 +274,27 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
                         </div>
                       </div>
                     )}
+                    <div className="reactions">
+                      {(reactions[p.post_id] ?? []).map((r) => (
+                        <button
+                          key={r.emoji}
+                          className={`reaction ${r.mine ? "on" : ""}`}
+                          onClick={() => toggleReaction(p.post_id, r.emoji)}
+                        >
+                          {r.emoji} {r.count}
+                        </button>
+                      ))}
+                      <span className="react-add">
+                        <button className="reaction add">＋</button>
+                        <span className="palette">
+                          {PALETTE.map((em) => (
+                            <button key={em} onClick={() => toggleReaction(p.post_id, em)}>
+                              {em}
+                            </button>
+                          ))}
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
@@ -249,18 +312,26 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
             </div>
 
             {mode === "chat" ? (
-              <div className="chatinput">
-                <span>💬</span>
-                <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                  placeholder={`#${activeName} 에 메시지 보내기`}
-                />
-                <button className="gen" onClick={sendChat}>
-                  보내기
-                </button>
-              </div>
+              <>
+                {replyTo && (
+                  <div className="reply-chip">
+                    ↩ {nameOf(replyTo.author_id)}에게 답글: {replyTo.text?.slice(0, 40)}
+                    <button onClick={() => setReplyTo(null)}>✕</button>
+                  </div>
+                )}
+                <div className="chatinput">
+                  <span>💬</span>
+                  <input
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                    placeholder={`#${activeName} 에 메시지 보내기`}
+                  />
+                  <button className="gen" onClick={sendChat}>
+                    보내기
+                  </button>
+                </div>
+              </>
             ) : (
               <>
                 <div className="plugbar">

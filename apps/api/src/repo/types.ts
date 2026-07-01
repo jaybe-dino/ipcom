@@ -11,6 +11,7 @@ import type {
   Order,
   Post,
   PromptTemplate,
+  Reaction,
   Space,
   User,
 } from "@remix-hub/core";
@@ -42,7 +43,12 @@ export interface Repo {
   getChannel(id: string): Promise<Channel | null>;
   saveChannel(channel: Channel): Promise<void>;
   listPosts(channelId: string): Promise<Post[]>;
+  getPost(id: string): Promise<Post | null>;
   createPost(post: Post): Promise<void>;
+
+  // Reactions
+  toggleReaction(reaction: Reaction): Promise<{ added: boolean }>;
+  listReactions(postIds: string[]): Promise<Reaction[]>;
 
   // Community membership
   addMember(m: Membership): Promise<void>;

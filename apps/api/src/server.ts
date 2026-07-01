@@ -113,16 +113,41 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const authors = Object.fromEntries(
       authorList.map((u) => [u!.user_id, { user_id: u!.user_id, display_name: u!.display_name, role: u!.role }]),
     );
-    return { posts, creations, authors };
+    // Reactions (mark the viewer's own if a valid token is present).
+    let viewerId: string | undefined;
+    try {
+      viewerId = (await req.jwtVerify<{ sub: string }>()).sub;
+    } catch {
+      viewerId = undefined;
+    }
+    const reactions = await service.reactionsFor(
+      posts.map((p) => p.post_id),
+      viewerId,
+    );
+    return { posts, creations, authors, reactions };
   });
 
-  // Community chat: post a text message to a channel (broadcast in real time).
+  // Community chat: post a text message (optionally a reply); broadcast live.
   app.post("/channels/:id/messages", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = req.body as { text: string };
-    const result = await service.sendMessage({ channelId: id, authorId: uid(req), text: body.text });
+    const body = req.body as { text: string; reply_to?: string };
+    const result = await service.sendMessage({
+      channelId: id,
+      authorId: uid(req),
+      text: body.text,
+      replyTo: body.reply_to,
+    });
     if (!result.ok) return reply.code(result.status).send({ error: result.reason });
     return reply.code(201).send({ post: result.post });
+  });
+
+  // Toggle an emoji reaction on a post.
+  app.post("/posts/:id/reactions", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { emoji: string };
+    const result = await service.reactToPost({ postId: id, userId: uid(req), emoji: body.emoji });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return { added: result.added };
   });
 
   // --- Generation (G1) — creators/owners ---

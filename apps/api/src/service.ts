@@ -108,11 +108,12 @@ export class RemixService {
     return { ok: true, creation };
   }
 
-  /** Community chat: send a plain text message to a channel and broadcast it. */
+  /** Community chat: send a plain text message (optionally a reply) and broadcast. */
   async sendMessage(params: {
     channelId: string;
     authorId: string;
     text: string;
+    replyTo?: string | null;
   }): Promise<{ ok: true; post: Post } | { ok: false; status: number; reason: string }> {
     const text = params.text?.trim();
     if (!text) return { ok: false, status: 400, reason: "empty_message" };
@@ -122,12 +123,61 @@ export class RemixService {
       author_id: params.authorId,
       text,
       creation_id: null,
+      reply_to: params.replyTo ?? null,
       created_at: now(),
     };
     await this.repo.createPost(post);
     const author = await this.repo.getUser(params.authorId);
     this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, author });
     return { ok: true, post };
+  }
+
+  /** Toggle an emoji reaction on a post and broadcast the change. */
+  async reactToPost(params: {
+    postId: string;
+    userId: string;
+    emoji: string;
+  }): Promise<{ ok: true; added: boolean } | { ok: false; status: number; reason: string }> {
+    const emoji = params.emoji?.trim();
+    if (!emoji) return { ok: false, status: 400, reason: "emoji_required" };
+    const post = await this.repo.getPost(params.postId);
+    if (!post) return { ok: false, status: 404, reason: "post_not_found" };
+    const { added } = await this.repo.toggleReaction({
+      post_id: params.postId,
+      user_id: params.userId,
+      emoji,
+      created_at: now(),
+    });
+    this.bus?.publish({
+      type: "reaction.updated",
+      channel_id: post.channel_id,
+      post_id: params.postId,
+      user_id: params.userId,
+      emoji,
+      added,
+    });
+    return { ok: true, added };
+  }
+
+  /** Aggregate reactions for a set of posts, marking the viewer's own. */
+  async reactionsFor(
+    postIds: string[],
+    viewerId?: string,
+  ): Promise<Record<string, { emoji: string; count: number; mine: boolean }[]>> {
+    const all = await this.repo.listReactions(postIds);
+    const byPost: Record<string, Map<string, { count: number; mine: boolean }>> = {};
+    for (const r of all) {
+      const m = (byPost[r.post_id] ??= new Map());
+      const cur = m.get(r.emoji) ?? { count: 0, mine: false };
+      cur.count += 1;
+      if (viewerId && r.user_id === viewerId) cur.mine = true;
+      m.set(r.emoji, cur);
+    }
+    const out: Record<string, { emoji: string; count: number; mine: boolean }[]> = {};
+    for (const [postId, m] of Object.entries(byPost)) {
+      out[postId] = [...m.entries()].map(([emoji, v]) => ({ emoji, count: v.count, mine: v.mine }));
+    }
+    return out;
   }
 
   /** G2: internal share — always free for space members. */

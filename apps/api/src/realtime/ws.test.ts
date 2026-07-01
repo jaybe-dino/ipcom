@@ -100,4 +100,55 @@ describe("Realtime channel WebSocket", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("supports replies and toggling emoji reactions with live broadcast", async () => {
+    const json = (r: Response) => r.json();
+    const h = { "content-type": "application/json", authorization: `Bearer ${token}` };
+
+    // A base message, then a reply to it.
+    const base = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ text: "부모 메시지" }),
+    }).then(json);
+    const reply = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ text: "답글이에요", reply_to: base.post.post_id }),
+    }).then(json);
+    expect(reply.post.reply_to).toBe(base.post.post_id);
+
+    // React (added), and a live subscriber sees reaction.updated.
+    const ws = new WebSocket(`${wsBase}/ws/channels/ch_chat?token=${token}`);
+    const gotReaction = new Promise<any>((resolve) => {
+      ws.onmessage = (ev) => {
+        const d = JSON.parse(ev.data as string);
+        if (d.type === "reaction.updated") resolve(d);
+      };
+    });
+    await new Promise<void>((r) => (ws.onopen = () => r()));
+
+    const r1 = await fetch(`${baseUrl}/posts/${base.post.post_id}/reactions`, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ emoji: "🔥" }),
+    }).then(json);
+    expect(r1.added).toBe(true);
+    const evt = await gotReaction;
+    expect(evt.emoji).toBe("🔥");
+    expect(evt.added).toBe(true);
+    ws.close();
+
+    // Reactions show up (with mine=true) in the channel fetch.
+    const posts = await fetch(`${baseUrl}/channels/ch_chat/posts`, { headers: h }).then(json);
+    expect(posts.reactions[base.post.post_id]).toEqual([{ emoji: "🔥", count: 1, mine: true }]);
+
+    // Toggling again removes it.
+    const r2 = await fetch(`${baseUrl}/posts/${base.post.post_id}/reactions`, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ emoji: "🔥" }),
+    }).then(json);
+    expect(r2.added).toBe(false);
+  });
 });

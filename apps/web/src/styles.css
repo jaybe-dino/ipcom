@@ -398,4 +398,20 @@ td b { font-weight: 700; }
 .sharebar-row { display: flex; gap: 7px; flex-wrap: wrap; }
 .sharebar-url { margin-top: 10px; font-size: 11px; color: var(--mut); word-break: break-all; }
 
+/* Reactions & replies */
+.reply-btn { background: none; border: none; color: var(--mut); font-size: 11px; cursor: pointer; margin-left: 4px; }
+.reply-btn:hover { color: var(--txt); }
+.quote { border-left: 2px solid var(--acc); padding: 2px 8px; margin: 2px 0 4px; font-size: 12px; color: var(--mut); background: var(--panel2); border-radius: 0 6px 6px 0; }
+.reactions { display: flex; gap: 5px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
+.reaction { background: var(--panel3); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font-size: 12px; cursor: pointer; color: var(--txt); }
+.reaction.on { border-color: var(--acc); background: rgba(124, 92, 255, 0.16); }
+.reaction.add { color: var(--mut); padding: 2px 8px; }
+.react-add { position: relative; display: inline-flex; }
+.react-add .palette { display: none; position: absolute; bottom: 26px; left: 0; gap: 2px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 4px; z-index: 5; }
+.react-add:hover .palette { display: flex; }
+.react-add .palette button { background: none; border: none; font-size: 16px; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.react-add .palette button:hover { background: var(--panel3); }
+.reply-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--mut); background: var(--panel2); border: 1px solid var(--line); border-left: 2px solid var(--acc); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; }
+.reply-chip button { background: none; border: none; color: var(--mut); cursor: pointer; font-size: 12px; }
+
 .foot { text-align: center; color: var(--mut); font-size: 11px; margin-top: 18px; }

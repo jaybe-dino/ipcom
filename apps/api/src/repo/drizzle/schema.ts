@@ -55,8 +55,20 @@ export const posts = pgTable("posts", {
   author_id: text("author_id").notNull(),
   text: text("text"),
   creation_id: text("creation_id"),
+  reply_to: text("reply_to"),
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
 });
+
+export const reactions = pgTable(
+  "reactions",
+  {
+    post_id: text("post_id").notNull(),
+    user_id: text("user_id").notNull(),
+    emoji: text("emoji").notNull(),
+    created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.post_id, t.user_id, t.emoji] }) }),
+);
 
 export const creations = pgTable("creations", {
   creation_id: text("creation_id").primaryKey(),
@@ -162,4 +174,5 @@ export const schema = {
   listings,
   orders,
   memberships,
+  reactions,
 };

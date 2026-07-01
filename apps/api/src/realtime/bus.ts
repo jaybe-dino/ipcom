@@ -6,7 +6,7 @@
  * message broker behind the same publish()/subscribe() surface.
  */
 export interface ChannelEvent {
-  type: "post.created" | "creation.updated" | "export.updated";
+  type: "post.created" | "creation.updated" | "export.updated" | "reaction.updated";
   channel_id: string;
   [key: string]: unknown;
 }
