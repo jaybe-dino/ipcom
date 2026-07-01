@@ -73,6 +73,54 @@ describe("Community structure", () => {
     expect(members.json().members.length).toBe(2);
   });
 
+  it("opens a private DM and blocks non-participants", async () => {
+    const opened = await app.inject({
+      method: "POST",
+      url: "/dm/user_owner_g",
+      headers: bearer(minji),
+    });
+    expect(opened.statusCode).toBe(201);
+    const channelId = opened.json().channel_id;
+    expect(opened.json().peer.user_id).toBe("user_owner_g");
+
+    // minji posts a DM message.
+    const sent = await app.inject({
+      method: "POST",
+      url: `/channels/${channelId}/messages`,
+      headers: bearer(minji),
+      payload: { text: "안녕 오너님, DM이에요" },
+    });
+    expect(sent.statusCode).toBe(201);
+
+    // owner (participant) can read it.
+    const ownerView = await app.inject({
+      method: "GET",
+      url: `/channels/${channelId}/posts`,
+      headers: bearer(owner),
+    });
+    expect(ownerView.statusCode).toBe(200);
+    expect(ownerView.json().posts.length).toBe(1);
+
+    // Both see it in their DM list.
+    const minjiDms = await app.inject({ method: "GET", url: "/me/dms", headers: bearer(minji) });
+    expect(minjiDms.json().dms.some((d: { channel_id: string }) => d.channel_id === channelId)).toBe(true);
+
+    // A third party (fresh user) is blocked from reading.
+    const stranger = (
+      await app.inject({
+        method: "POST",
+        url: "/auth/register",
+        payload: { email: "stranger@x.com", password: "pw", display_name: "낯선이" },
+      })
+    ).json().token as string;
+    const blocked = await app.inject({
+      method: "GET",
+      url: `/channels/${channelId}/posts`,
+      headers: bearer(stranger),
+    });
+    expect(blocked.statusCode).toBe(403);
+  });
+
   it("removes membership on leave", async () => {
     const created = await app.inject({
       method: "POST",

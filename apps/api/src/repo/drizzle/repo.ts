@@ -25,6 +25,7 @@ import type { Repo } from "../types.js";
 import {
   channels,
   creations,
+  dmThreads,
   exportRequests,
   ips,
   ledgerEntries,
@@ -107,6 +108,10 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     sql`CREATE TABLE IF NOT EXISTS reactions (
       post_id text NOT NULL, user_id text NOT NULL, emoji text NOT NULL,
       created_at timestamptz NOT NULL, PRIMARY KEY (post_id, user_id, emoji)
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS dm_threads (
+      user_id text NOT NULL, channel_id text NOT NULL, peer_id text NOT NULL,
+      created_at timestamptz NOT NULL, PRIMARY KEY (user_id, channel_id)
     )`,
     // Additive column for existing deployments (idempotent).
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
@@ -320,6 +325,20 @@ export class DrizzleRepo implements Repo {
     const ids = ms.map((m) => m.sid);
     if (!ids.length) return [];
     return (await this.db.select().from(spaces).where(inArray(spaces.space_id, ids))).map(rowToSpace);
+  }
+
+  async upsertDmThread(userId: string, channelId: string, peerId: string) {
+    await this.db
+      .insert(dmThreads)
+      .values({ user_id: userId, channel_id: channelId, peer_id: peerId, created_at: now() })
+      .onConflictDoNothing();
+  }
+  async listDmThreads(userId: string) {
+    const rows = await this.db
+      .select({ channel_id: dmThreads.channel_id, peer_id: dmThreads.peer_id })
+      .from(dmThreads)
+      .where(eq(dmThreads.user_id, userId));
+    return rows;
   }
 
   async getCreation(id: string) {

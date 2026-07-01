@@ -3,21 +3,23 @@ import { AuthBar } from "./components/AuthBar.js";
 import { useSession } from "./useSession.js";
 import { AuthScreen } from "./screens/AuthScreen.js";
 import { ConsentScreen } from "./screens/ConsentScreen.js";
+import { DmScreen } from "./screens/DmScreen.js";
 import { GateScreen } from "./screens/GateScreen.js";
 import { HomeScreen } from "./screens/HomeScreen.js";
 import { MarketScreen } from "./screens/MarketScreen.js";
 import { SettleScreen } from "./screens/SettleScreen.js";
 import { SpaceScreen } from "./screens/SpaceScreen.js";
 
-export type ScreenId = "home" | "space" | "gate" | "consent" | "settle" | "market";
+export type ScreenId = "home" | "space" | "dm" | "gate" | "consent" | "settle" | "market";
 
 const NAV: { id: ScreenId; label: string }[] = [
   { id: "home", label: "① 스페이스 탐색" },
   { id: "space", label: "② 커뮤니티 · 채팅" },
-  { id: "gate", label: "③ 외부 반출 게이트" },
-  { id: "consent", label: "④ IP 동의 매트릭스" },
-  { id: "settle", label: "⑤ 정산 대시보드" },
-  { id: "market", label: "⑥ 마켓플레이스" },
+  { id: "dm", label: "③ DM" },
+  { id: "gate", label: "④ 외부 반출 게이트" },
+  { id: "consent", label: "⑤ IP 동의 매트릭스" },
+  { id: "settle", label: "⑥ 정산 대시보드" },
+  { id: "market", label: "⑦ 마켓플레이스" },
 ];
 
 const SEED_SPACE = "space_artist_g";
@@ -29,6 +31,8 @@ export function App() {
   const [exportCreationId, setExportCreationId] = useState<string | null>(null);
   // Which community space the chat screen is showing.
   const [spaceId, setSpaceId] = useState<string>(SEED_SPACE);
+  // Active DM channel (set when opening a DM from the member panel).
+  const [dmChannel, setDmChannel] = useState<string | null>(null);
 
   const go = (id: ScreenId) => {
     setScreen(id);
@@ -76,8 +80,13 @@ export function App() {
             setExportCreationId(creationId);
             go("gate");
           }}
+          onOpenDm={(channelId) => {
+            setDmChannel(channelId);
+            go("dm");
+          }}
         />
       )}
+      {screen === "dm" && <DmScreen initialChannel={dmChannel} />}
       {screen === "gate" && (
         <GateScreen creationId={exportCreationId} onCancel={() => go("space")} onDone={() => go("settle")} />
       )}

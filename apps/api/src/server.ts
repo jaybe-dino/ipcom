@@ -110,8 +110,30 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
 
   app.get("/me/spaces", auth(), async (req) => ({ spaces: await community.mySpaces(uid(req)) }));
 
-  app.get("/channels/:id/posts", async (req) => {
+  // --- Direct messages (1:1) ---
+  app.post("/dm/:userId", auth(), async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const result = await community.openDm(uid(req), userId);
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send(result.value);
+  });
+
+  app.get("/me/dms", auth(), async (req) => ({ dms: await community.listDms(uid(req)) }));
+
+  app.get("/channels/:id/posts", async (req, reply) => {
     const { id } = req.params as { id: string };
+    // DM channels are private: only the two participants may read.
+    if (id.startsWith("dm_")) {
+      let viewer: string | undefined;
+      try {
+        viewer = (await req.jwtVerify<{ sub: string }>()).sub;
+      } catch {
+        return reply.code(401).send({ error: "unauthorized" });
+      }
+      if (!CommunityService.isDmParticipant(id, viewer)) {
+        return reply.code(403).send({ error: "not_a_participant" });
+      }
+    }
     const posts = await repo.listPosts(id);
     const creations = (
       await Promise.all(posts.map((p) => (p.creation_id ? repo.getCreation(p.creation_id) : null)))
@@ -139,6 +161,10 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   // Community chat: post a text message (optionally a reply); broadcast live.
   app.post("/channels/:id/messages", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };
+    // DM channels: only participants may post.
+    if (id.startsWith("dm_") && !CommunityService.isDmParticipant(id, uid(req))) {
+      return reply.code(403).send({ error: "not_a_participant" });
+    }
     const body = req.body as { text: string; reply_to?: string };
     const result = await service.sendMessage({
       channelId: id,

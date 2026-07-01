@@ -120,6 +120,10 @@ export function createApi(cfg: ClientConfig) {
     joinSpace: (id: string) => req<{ space: Space }>(`/spaces/${id}/join`, { method: "POST" }),
     leaveSpace: (id: string) => req<{ left: boolean }>(`/spaces/${id}/leave`, { method: "POST" }),
     spaceMembers: (id: string) => req<{ members: AuthorRef[] }>(`/spaces/${id}/members`),
+
+    // Direct messages
+    openDm: (userId: string) => req<{ channel_id: string; peer: User }>(`/dm/${userId}`, { method: "POST" }),
+    myDms: () => req<{ dms: { channel_id: string; peer: User }[] }>("/me/dms"),
     getChannelPosts: (id: string) =>
       req<{
         posts: Post[];

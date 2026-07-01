@@ -18,7 +18,15 @@ const colorFor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeA
 
 const PALETTE = ["🔥", "❤️", "😂", "👍", "🎉", "👏"];
 
-export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: (creationId: string) => void }) {
+export function SpaceScreen({
+  spaceId,
+  onExport,
+  onOpenDm,
+}: {
+  spaceId: string;
+  onExport: (creationId: string) => void;
+  onOpenDm: (channelId: string) => void;
+}) {
   const user = useSession();
   const [spaceVersion, setSpaceVersion] = useState(0);
   const space = useAsync(() => api.getSpace(spaceId), [spaceId, spaceVersion]);
@@ -380,7 +388,18 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
               <div className={`member ${m.online ? "online" : ""}`} key={m.user_id}>
                 <span className="dot" />
                 <span className="mname">{m.display_name ?? m.user_id}</span>
-                {m.role === "OWNER" && <span className="pill p">소유자</span>}
+                {m.user_id !== user?.user_id && (
+                  <button
+                    className="dm-btn"
+                    title="DM 보내기"
+                    onClick={async () => {
+                      const { channel_id } = await api.openDm(m.user_id);
+                      onOpenDm(channel_id);
+                    }}
+                  >
+                    ✉
+                  </button>
+                )}
               </div>
             ))}
         </div>

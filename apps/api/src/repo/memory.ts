@@ -37,6 +37,8 @@ export class MemoryRepo implements Repo {
   private members = new Map<string, Set<string>>();
   /** key `${post_id}|${user_id}|${emoji}` → Reaction. */
   private reactions = new Map<string, Reaction>();
+  /** user_id → (channel_id → peer_id) for DM conversations. */
+  private dmThreads = new Map<string, Map<string, string>>();
   private ledger = new LicenseLedger();
 
   constructor(seed = true) {
@@ -158,6 +160,18 @@ export class MemoryRepo implements Repo {
   }
   async listSpacesForUser(userId: string) {
     return [...this.spaces.values()].filter((s) => this.members.get(s.space_id)?.has(userId));
+  }
+
+  async upsertDmThread(userId: string, channelId: string, peerId: string) {
+    let m = this.dmThreads.get(userId);
+    if (!m) this.dmThreads.set(userId, (m = new Map()));
+    m.set(channelId, peerId);
+  }
+  async listDmThreads(userId: string) {
+    return [...(this.dmThreads.get(userId)?.entries() ?? [])].map(([channel_id, peer_id]) => ({
+      channel_id,
+      peer_id,
+    }));
   }
 
   async getCreation(id: string) {

@@ -57,6 +57,10 @@ export interface Repo {
   listMembers(spaceId: string): Promise<User[]>;
   listSpacesForUser(userId: string): Promise<Space[]>;
 
+  // Direct messages (1:1)
+  upsertDmThread(userId: string, channelId: string, peerId: string): Promise<void>;
+  listDmThreads(userId: string): Promise<{ channel_id: string; peer_id: string }[]>;
+
   // Creations
   getCreation(id: string): Promise<Creation | null>;
   saveCreation(creation: Creation): Promise<void>;

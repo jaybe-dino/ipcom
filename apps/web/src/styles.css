@@ -129,6 +129,9 @@ body {
 .member.online { color: var(--txt); }
 .member.online .dot { background: var(--acc2); }
 .member .mname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member .dm-btn { background: none; border: none; color: var(--mut); cursor: pointer; font-size: 13px; opacity: 0; }
+.member:hover .dm-btn { opacity: 1; }
+.member .dm-btn:hover { color: var(--acc); }
 .rail {
   background: #0b0c10;
   padding: 12px 0;

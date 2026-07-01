@@ -161,6 +161,17 @@ export const memberships = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.space_id, t.user_id] }) }),
 );
 
+export const dmThreads = pgTable(
+  "dm_threads",
+  {
+    user_id: text("user_id").notNull(),
+    channel_id: text("channel_id").notNull(),
+    peer_id: text("peer_id").notNull(),
+    created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.user_id, t.channel_id] }) }),
+);
+
 export const schema = {
   users,
   ips,
@@ -175,4 +186,5 @@ export const schema = {
   orders,
   memberships,
   reactions,
+  dmThreads,
 };

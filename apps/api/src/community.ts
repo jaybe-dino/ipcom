@@ -107,4 +107,36 @@ export class CommunityService {
   async mySpaces(userId: string): Promise<Space[]> {
     return this.repo.listSpacesForUser(userId);
   }
+
+  /** Deterministic DM channel id for a pair of users. */
+  static dmChannelId(a: string, b: string): string {
+    return `dm_${[a, b].sort().join("__")}`;
+  }
+
+  /** True if userId is one of the two participants encoded in a dm_ channel id. */
+  static isDmParticipant(channelId: string, userId: string): boolean {
+    return channelId.startsWith("dm_") && channelId.slice(3).split("__").includes(userId);
+  }
+
+  /** Open (or resume) a 1:1 DM; records the thread for both users. */
+  async openDm(meId: string, peerId: string): Promise<Result<{ channel_id: string; peer: User }>> {
+    if (meId === peerId) return { ok: false, status: 400, reason: "cannot_dm_self" };
+    const peer = await this.repo.getUser(peerId);
+    if (!peer) return { ok: false, status: 404, reason: "user_not_found" };
+    const channel_id = CommunityService.dmChannelId(meId, peerId);
+    await this.repo.upsertDmThread(meId, channel_id, peerId);
+    await this.repo.upsertDmThread(peerId, channel_id, meId);
+    return { ok: true, value: { channel_id, peer } };
+  }
+
+  /** List the current user's DM conversations with peer info. */
+  async listDms(userId: string): Promise<{ channel_id: string; peer: User }[]> {
+    const threads = await this.repo.listDmThreads(userId);
+    const out: { channel_id: string; peer: User }[] = [];
+    for (const t of threads) {
+      const peer = await this.repo.getUser(t.peer_id);
+      if (peer) out.push({ channel_id: t.channel_id, peer });
+    }
+    return out;
+  }
 }
