@@ -28,6 +28,7 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
   const [authors, setAuthors] = useState<Record<string, AuthorRef>>({});
   const [reactions, setReactions] = useState<Record<string, ReactionSummary[]>>({});
   const [replyTo, setReplyTo] = useState<Post | null>(null);
+  const [members, setMembers] = useState<AuthorRef[]>([]);
 
   const [mode, setMode] = useState<"chat" | "ai">("chat");
   const [text, setText] = useState("");
@@ -94,6 +95,14 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [space.data]);
 
+  const loadMembers = () => {
+    void api.spaceMembers(spaceId).then((r) => setMembers(r.members)).catch(() => setMembers([]));
+  };
+  useEffect(() => {
+    loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceId, spaceVersion]);
+
   useEffect(() => {
     if (activeChannel) void loadFeed(activeChannel);
   }, [activeChannel]);
@@ -105,6 +114,8 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
         upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
       } else if (e.type === "reaction.updated") {
         applyReaction(e.post_id as string, e.emoji as string, e.added as boolean, e.user_id as string);
+      } else if (e.type === "presence.updated") {
+        loadMembers();
       }
     });
   }, [activeChannel, user]);
@@ -359,6 +370,19 @@ export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: 
             )}
             {msg && <div className={`banner ${msg.kind}`}>{msg.text}</div>}
           </div>
+        </div>
+
+        <div className="members">
+          <div className="ch-grp">멤버 — {members.length}</div>
+          {[...members]
+            .sort((a, b) => Number(b.online) - Number(a.online))
+            .map((m) => (
+              <div className={`member ${m.online ? "online" : ""}`} key={m.user_id}>
+                <span className="dot" />
+                <span className="mname">{m.display_name ?? m.user_id}</span>
+                {m.role === "OWNER" && <span className="pill p">소유자</span>}
+              </div>
+            ))}
         </div>
       </div>
     </section>

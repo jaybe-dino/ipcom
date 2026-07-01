@@ -14,6 +14,7 @@ import { MarketService } from "./market.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import { renderShareCard, renderSharePage } from "./share.js";
 import { EventBus } from "./realtime/bus.js";
+import { PresenceTracker } from "./realtime/presence.js";
 import { registerRealtime } from "./realtime/ws.js";
 import { MemoryRepo, createRepo, type Repo } from "./repo/index.js";
 import { RemixService } from "./service.js";
@@ -27,6 +28,7 @@ import { RemixService } from "./service.js";
  */
 export function buildServer(repo: Repo = new MemoryRepo()) {
   const bus = new EventBus();
+  const presence = new PresenceTracker();
   const gateway = PluginGateway.fromEnv();
   const assets = new MemoryAssetStore();
   const service = new RemixService(repo, gateway, bus, assets);
@@ -36,7 +38,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
 
   app.register(cors, { origin: true });
   registerAuth(app, repo);
-  registerRealtime(app, bus);
+  registerRealtime(app, bus, presence);
 
   const uid = (req: { authUser?: { sub: string } }): string => req.authUser!.sub;
   const auth = () => ({ preHandler: [app.authenticate] });
@@ -96,7 +98,14 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   app.get("/spaces/:id/members", async (req) => {
     const { id } = req.params as { id: string };
     const members = await community.members(id);
-    return { members: members.map((u) => ({ user_id: u.user_id, display_name: u.display_name, role: u.role })) };
+    return {
+      members: members.map((u) => ({
+        user_id: u.user_id,
+        display_name: u.display_name,
+        role: u.role,
+        online: presence.isOnline(u.user_id),
+      })),
+    };
   });
 
   app.get("/me/spaces", auth(), async (req) => ({ spaces: await community.mySpaces(uid(req)) }));

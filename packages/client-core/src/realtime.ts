@@ -1,7 +1,13 @@
 /** Real-time channel subscription, platform-agnostic (web/RN/desktop). */
 
 export interface ChannelEvent {
-  type: "hello" | "post.created" | "creation.updated" | "export.updated" | "reaction.updated";
+  type:
+    | "hello"
+    | "post.created"
+    | "creation.updated"
+    | "export.updated"
+    | "reaction.updated"
+    | "presence.updated";
   channel_id: string;
   [key: string]: unknown;
 }

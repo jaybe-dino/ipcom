@@ -41,6 +41,8 @@ export interface AuthorRef {
   user_id: string;
   display_name?: string;
   role: User["role"];
+  /** Present in member lists: whether the user is currently connected. */
+  online?: boolean;
 }
 
 export type Api = ReturnType<typeof createApi>;

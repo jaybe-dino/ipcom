@@ -92,6 +92,27 @@ describe("Realtime channel WebSocket", () => {
     ws.close();
   });
 
+  it("marks members online while a socket is connected (presence)", async () => {
+    const onlineOf = async (uid: string) => {
+      const r = await fetch(`${baseUrl}/spaces/space_artist_g/members`).then((x) => x.json());
+      return r.members.find((m: { user_id: string }) => m.user_id === uid)?.online;
+    };
+
+    const ws = new WebSocket(`${wsBase}/ws/channels/ch_chat?token=${token}`);
+    await new Promise<void>((r) => (ws.onopen = () => r()));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await onlineOf("user_minji")).toBe(true);
+
+    ws.close();
+    // Poll until the server processes the disconnect.
+    let offline = false;
+    for (let i = 0; i < 20 && !offline; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      offline = (await onlineOf("user_minji")) === false;
+    }
+    expect(offline).toBe(true);
+  });
+
   it("rejects an empty chat message", async () => {
     const res = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
       method: "POST",

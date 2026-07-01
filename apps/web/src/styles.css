@@ -116,13 +116,19 @@ body {
 
 .layout {
   display: grid;
-  grid-template-columns: 64px 230px 1fr;
+  grid-template-columns: 64px 220px 1fr 190px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
   min-height: 560px;
   background: var(--panel);
 }
+.members { background: var(--panel); border-left: 1px solid var(--line); padding: 14px 10px; }
+.member { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 8px; font-size: 13px; color: var(--mut); }
+.member .dot { width: 8px; height: 8px; border-radius: 50%; background: #4a4f5c; flex-shrink: 0; }
+.member.online { color: var(--txt); }
+.member.online .dot { background: var(--acc2); }
+.member .mname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail {
   background: #0b0c10;
   padding: 12px 0;
