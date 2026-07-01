@@ -154,6 +154,35 @@ describe("Community structure", () => {
     expect(older.posts.every((p: { created_at: string }) => p.created_at < page1.posts[0].created_at)).toBe(true);
   });
 
+  it("attaches an image URL to a message (and validates it)", async () => {
+    const ok = await app.inject({
+      method: "POST",
+      url: "/channels/ch_chat/messages",
+      headers: bearer(minji),
+      payload: { text: "이 이미지 보세요", image_url: "https://example.com/a.png" },
+    });
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json().post.image_url).toBe("https://example.com/a.png");
+
+    // Image-only message is allowed.
+    const imgOnly = await app.inject({
+      method: "POST",
+      url: "/channels/ch_chat/messages",
+      headers: bearer(minji),
+      payload: { image_url: "https://example.com/b.png" },
+    });
+    expect(imgOnly.statusCode).toBe(201);
+
+    // Invalid URL rejected.
+    const bad = await app.inject({
+      method: "POST",
+      url: "/channels/ch_chat/messages",
+      headers: bearer(minji),
+      payload: { text: "x", image_url: "not-a-url" },
+    });
+    expect(bad.statusCode).toBe(400);
+  });
+
   it("removes membership on leave", async () => {
     const created = await app.inject({
       method: "POST",

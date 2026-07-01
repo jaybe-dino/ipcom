@@ -182,12 +182,13 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     if (id.startsWith("dm_") && !CommunityService.isDmParticipant(id, uid(req))) {
       return reply.code(403).send({ error: "not_a_participant" });
     }
-    const body = req.body as { text: string; reply_to?: string };
+    const body = req.body as { text: string; reply_to?: string; image_url?: string };
     const result = await service.sendMessage({
       channelId: id,
       authorId: uid(req),
       text: body.text,
       replyTo: body.reply_to,
+      imageUrl: body.image_url,
     });
     if (!result.ok) return reply.code(result.status).send({ error: result.reason });
     return reply.code(201).send({ post: result.post });

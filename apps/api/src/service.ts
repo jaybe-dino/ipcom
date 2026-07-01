@@ -115,9 +115,12 @@ export class RemixService {
     authorId: string;
     text: string;
     replyTo?: string | null;
+    imageUrl?: string | null;
   }): Promise<{ ok: true; post: Post } | { ok: false; status: number; reason: string }> {
-    const text = params.text?.trim();
-    if (!text) return { ok: false, status: 400, reason: "empty_message" };
+    const text = params.text?.trim() ?? "";
+    const image = params.imageUrl?.trim() || null;
+    if (!text && !image) return { ok: false, status: 400, reason: "empty_message" };
+    if (image && !/^https?:\/\//i.test(image)) return { ok: false, status: 400, reason: "invalid_image_url" };
     const post: Post = {
       post_id: newId("post"),
       channel_id: params.channelId,
@@ -125,6 +128,7 @@ export class RemixService {
       text,
       creation_id: null,
       reply_to: params.replyTo ?? null,
+      image_url: image,
       created_at: now(),
     };
     await this.repo.createPost(post);

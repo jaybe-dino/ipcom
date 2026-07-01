@@ -30,7 +30,7 @@ PRD(첨부 상세 기획안)를 코드로 옮긴 현재 구현 상태와, 앱/�
 
 | PRD 서비스 | 현재 구현 | 비고 |
 | --- | --- | --- |
-| Community Service | 스페이스/채널 생성·가입/탈퇴·멤버십 + 실시간 채팅(WebSocket) | ✅ 사용자 생성 멀티 커뮤니티 |
+| Community Service | 스페이스/채널·멤버십 + 실시간 채팅(반응·답글·수정·삭제·멘션알림·타이핑·온라인·DM·이미지·페이지네이션) | ✅ 사용자 생성 멀티 커뮤니티 |
 | Identity & Access | JWT + scrypt + RBAC (`src/auth`) | ✅ register/login, 역할 기반 권한 |
 | Plugin Gateway | `apps/api/src/plugins/*` | NIM 어댑터 + 스텁 failover |
 | Rights Engine | `@remix-hub/core/rights` (G1/G2/G3) | 완료 (단위 테스트) |

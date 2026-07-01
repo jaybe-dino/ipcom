@@ -41,6 +41,7 @@ export function SpaceScreen({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const skipScroll = useRef(false);
   const [typing, setTyping] = useState<Record<string, string>>({}); // user_id → display_name
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const lastTypingSent = useRef(0);
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -196,15 +197,18 @@ export function SpaceScreen({
 
   async function sendChat() {
     const t = text.trim();
-    if (!t) return;
+    if (!t && !pendingImage) return;
     setText("");
     const reply = replyTo?.post_id ?? null;
     setReplyTo(null);
+    const img = pendingImage;
+    setPendingImage(null);
     try {
-      await api.sendMessage(activeChannel, t, reply); // echoes back via WS subscription
+      await api.sendMessage(activeChannel, t, { replyTo: reply, imageUrl: img }); // WS echo renders it
     } catch (e) {
       setMsg({ kind: "err", text: `전송 실패: ${(e as Error).message}` });
       setText(t);
+      setPendingImage(img);
     }
   }
 
@@ -367,6 +371,11 @@ export function SpaceScreen({
                         {p.edited_at && <span className="edited"> (수정됨)</span>}
                       </div>
                     )}
+                    {p.image_url && (
+                      <a href={p.image_url} target="_blank" rel="noopener noreferrer">
+                        <img className="msg-img" src={p.image_url} alt="첨부 이미지" loading="lazy" />
+                      </a>
+                    )}
                     {cr && (
                       <div className="card">
                         <div className="thumb">
@@ -434,8 +443,23 @@ export function SpaceScreen({
                     <button onClick={() => setReplyTo(null)}>✕</button>
                   </div>
                 )}
+                {pendingImage && (
+                  <div className="reply-chip">
+                    🖼️ 이미지 첨부됨
+                    <button onClick={() => setPendingImage(null)}>✕</button>
+                  </div>
+                )}
                 <div className="chatinput">
-                  <span>💬</span>
+                  <button
+                    className="img-btn"
+                    title="이미지 URL 첨부"
+                    onClick={() => {
+                      const url = window.prompt("이미지 URL을 붙여넣으세요 (https://…)");
+                      if (url && /^https?:\/\//i.test(url)) setPendingImage(url.trim());
+                    }}
+                  >
+                    🖼️
+                  </button>
                   <input
                     value={text}
                     onChange={(e) => onType(e.target.value)}

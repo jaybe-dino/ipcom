@@ -32,6 +32,8 @@ export interface Post {
   creation_id?: UUID | null;
   /** If this post is a reply, the post it replies to. */
   reply_to?: UUID | null;
+  /** Optional attached image URL. */
+  image_url?: string | null;
   created_at: ISODateTime;
   /** Set when the message has been edited. */
   edited_at?: ISODateTime | null;

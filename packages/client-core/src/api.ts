@@ -143,10 +143,18 @@ export function createApi(cfg: ClientConfig) {
         hasMore: boolean;
       }>(`/channels/${id}/posts${suffix}`);
     },
-    sendMessage: (channelId: string, text: string, replyTo?: string | null) =>
+    sendMessage: (
+      channelId: string,
+      text: string,
+      opts: { replyTo?: string | null; imageUrl?: string | null } = {},
+    ) =>
       req<{ post: Post }>(`/channels/${channelId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ text, reply_to: replyTo ?? undefined }),
+        body: JSON.stringify({
+          text,
+          reply_to: opts.replyTo ?? undefined,
+          image_url: opts.imageUrl ?? undefined,
+        }),
       }),
     react: (postId: string, emoji: string) =>
       req<{ added: boolean }>(`/posts/${postId}/reactions`, {

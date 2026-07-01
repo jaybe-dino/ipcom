@@ -123,6 +123,7 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     // Additive columns for existing deployments (idempotent).
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS edited_at timestamptz`,
+    sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url text`,
   ];
   for (const stmt of statements) await db.execute(stmt);
 }
@@ -165,6 +166,7 @@ function rowToPost(r: typeof posts.$inferSelect): Post {
     text: r.text ?? undefined,
     creation_id: r.creation_id,
     reply_to: r.reply_to,
+    image_url: r.image_url,
     edited_at: r.edited_at,
   };
 }
