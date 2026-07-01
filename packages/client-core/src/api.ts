@@ -141,6 +141,9 @@ export function createApi(cfg: ClientConfig) {
         method: "POST",
         body: JSON.stringify({ emoji }),
       }),
+    editMessage: (postId: string, text: string) =>
+      req<{ post: Post }>(`/posts/${postId}`, { method: "PATCH", body: JSON.stringify({ text }) }),
+    deleteMessage: (postId: string) => req<{ deleted: boolean }>(`/posts/${postId}`, { method: "DELETE" }),
     plugins: () => req<PluginInventory>("/plugins"),
 
     generate: (

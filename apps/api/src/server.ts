@@ -176,6 +176,22 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     return reply.code(201).send({ post: result.post });
   });
 
+  // Edit / delete a message (author only).
+  app.patch("/posts/:id", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { text: string };
+    const result = await service.editMessage({ postId: id, userId: uid(req), text: body.text });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return { post: result.post };
+  });
+
+  app.delete("/posts/:id", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const result = await service.deleteMessage({ postId: id, userId: uid(req) });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return { deleted: true };
+  });
+
   // Toggle an emoji reaction on a post.
   app.post("/posts/:id/reactions", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };

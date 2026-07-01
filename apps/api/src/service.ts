@@ -132,6 +132,43 @@ export class RemixService {
     return { ok: true, post };
   }
 
+  /** Edit a message (author only). */
+  async editMessage(params: {
+    postId: string;
+    userId: string;
+    text: string;
+  }): Promise<{ ok: true; post: Post } | { ok: false; status: number; reason: string }> {
+    const text = params.text?.trim();
+    if (!text) return { ok: false, status: 400, reason: "empty_message" };
+    const post = await this.repo.getPost(params.postId);
+    if (!post) return { ok: false, status: 404, reason: "post_not_found" };
+    if (post.author_id !== params.userId) return { ok: false, status: 403, reason: "not_author" };
+    const editedAt = now();
+    await this.repo.updatePostText(params.postId, text, editedAt);
+    const updated = { ...post, text, edited_at: editedAt };
+    this.bus?.publish({
+      type: "post.updated",
+      channel_id: post.channel_id,
+      post_id: post.post_id,
+      text,
+      edited_at: editedAt,
+    });
+    return { ok: true, post: updated };
+  }
+
+  /** Delete a message (author only). */
+  async deleteMessage(params: {
+    postId: string;
+    userId: string;
+  }): Promise<{ ok: true } | { ok: false; status: number; reason: string }> {
+    const post = await this.repo.getPost(params.postId);
+    if (!post) return { ok: false, status: 404, reason: "post_not_found" };
+    if (post.author_id !== params.userId) return { ok: false, status: 403, reason: "not_author" };
+    await this.repo.deletePost(params.postId);
+    this.bus?.publish({ type: "post.deleted", channel_id: post.channel_id, post_id: post.post_id });
+    return { ok: true };
+  }
+
   /** Toggle an emoji reaction on a post and broadcast the change. */
   async reactToPost(params: {
     postId: string;

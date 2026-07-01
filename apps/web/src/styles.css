@@ -132,6 +132,7 @@ body {
 .member .dm-btn { background: none; border: none; color: var(--mut); cursor: pointer; font-size: 13px; opacity: 0; }
 .member:hover .dm-btn { opacity: 1; }
 .member .dm-btn:hover { color: var(--acc); }
+.edited { color: var(--mut); font-size: 10.5px; }
 .rail {
   background: #0b0c10;
   padding: 12px 0;

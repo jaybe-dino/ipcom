@@ -45,6 +45,8 @@ export interface Repo {
   listPosts(channelId: string): Promise<Post[]>;
   getPost(id: string): Promise<Post | null>;
   createPost(post: Post): Promise<void>;
+  updatePostText(id: string, text: string, editedAt: string): Promise<void>;
+  deletePost(id: string): Promise<void>;
 
   // Reactions
   toggleReaction(reaction: Reaction): Promise<{ added: boolean }>;

@@ -57,6 +57,7 @@ export const posts = pgTable("posts", {
   creation_id: text("creation_id"),
   reply_to: text("reply_to"),
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+  edited_at: timestamp("edited_at", { mode: "string", withTimezone: true }),
 });
 
 export const reactions = pgTable(

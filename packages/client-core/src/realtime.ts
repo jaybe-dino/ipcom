@@ -4,6 +4,8 @@ export interface ChannelEvent {
   type:
     | "hello"
     | "post.created"
+    | "post.updated"
+    | "post.deleted"
     | "creation.updated"
     | "export.updated"
     | "reaction.updated"

@@ -113,8 +113,9 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       user_id text NOT NULL, channel_id text NOT NULL, peer_id text NOT NULL,
       created_at timestamptz NOT NULL, PRIMARY KEY (user_id, channel_id)
     )`,
-    // Additive column for existing deployments (idempotent).
+    // Additive columns for existing deployments (idempotent).
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
+    sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS edited_at timestamptz`,
   ];
   for (const stmt of statements) await db.execute(stmt);
 }
@@ -152,7 +153,13 @@ function rowToSpace(r: typeof spaces.$inferSelect): Space {
 }
 
 function rowToPost(r: typeof posts.$inferSelect): Post {
-  return { ...r, text: r.text ?? undefined, creation_id: r.creation_id, reply_to: r.reply_to };
+  return {
+    ...r,
+    text: r.text ?? undefined,
+    creation_id: r.creation_id,
+    reply_to: r.reply_to,
+    edited_at: r.edited_at,
+  };
 }
 
 function rowToExport(r: typeof exportRequests.$inferSelect): ExportRequest {
@@ -262,6 +269,13 @@ export class DrizzleRepo implements Repo {
   }
   async createPost(post: Post) {
     await this.db.insert(posts).values(post).onConflictDoNothing();
+  }
+  async updatePostText(id: string, text: string, editedAt: string) {
+    await this.db.update(posts).set({ text, edited_at: editedAt }).where(eq(posts.post_id, id));
+  }
+  async deletePost(id: string) {
+    await this.db.delete(reactions).where(eq(reactions.post_id, id));
+    await this.db.delete(posts).where(eq(posts.post_id, id));
   }
 
   async toggleReaction(r: Reaction): Promise<{ added: boolean }> {

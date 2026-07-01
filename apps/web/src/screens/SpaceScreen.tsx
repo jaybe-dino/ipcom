@@ -122,6 +122,14 @@ export function SpaceScreen({
         upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
       } else if (e.type === "reaction.updated") {
         applyReaction(e.post_id as string, e.emoji as string, e.added as boolean, e.user_id as string);
+      } else if (e.type === "post.updated") {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.post_id === e.post_id ? { ...p, text: e.text as string, edited_at: e.edited_at as string } : p,
+          ),
+        );
+      } else if (e.type === "post.deleted") {
+        setPosts((prev) => prev.filter((p) => p.post_id !== e.post_id));
       } else if (e.type === "presence.updated") {
         loadMembers();
       }
@@ -267,13 +275,39 @@ export function SpaceScreen({
                       <button className="reply-btn" onClick={() => setReplyTo(p)}>
                         답글
                       </button>
+                      {p.author_id === user?.user_id && p.text && (
+                        <>
+                          <button
+                            className="reply-btn"
+                            onClick={async () => {
+                              const next = window.prompt("메시지 수정", p.text ?? "");
+                              if (next && next.trim() && next !== p.text) await api.editMessage(p.post_id, next.trim());
+                            }}
+                          >
+                            수정
+                          </button>
+                          <button
+                            className="reply-btn"
+                            onClick={async () => {
+                              if (window.confirm("이 메시지를 삭제할까요?")) await api.deleteMessage(p.post_id);
+                            }}
+                          >
+                            삭제
+                          </button>
+                        </>
+                      )}
                     </div>
                     {p.reply_to && postsById[p.reply_to] && (
                       <div className="quote">
                         ↩ {nameOf(postsById[p.reply_to]!.author_id)}: {postsById[p.reply_to]!.text?.slice(0, 60)}
                       </div>
                     )}
-                    {p.text && <div className="txt">{p.text}</div>}
+                    {p.text && (
+                      <div className="txt">
+                        {p.text}
+                        {p.edited_at && <span className="edited"> (수정됨)</span>}
+                      </div>
+                    )}
                     {cr && (
                       <div className="card">
                         <div className="thumb">

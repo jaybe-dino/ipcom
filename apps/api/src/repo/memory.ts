@@ -123,6 +123,19 @@ export class MemoryRepo implements Repo {
   async createPost(post: Post) {
     this.posts.set(post.post_id, post);
   }
+  async updatePostText(id: string, text: string, editedAt: string) {
+    const post = this.posts.get(id);
+    if (post) {
+      post.text = text;
+      post.edited_at = editedAt;
+    }
+  }
+  async deletePost(id: string) {
+    this.posts.delete(id);
+    for (const key of [...this.reactions.keys()]) {
+      if (key.startsWith(`${id}|`)) this.reactions.delete(key);
+    }
+  }
 
   async toggleReaction(r: Reaction) {
     const key = `${r.post_id}|${r.user_id}|${r.emoji}`;

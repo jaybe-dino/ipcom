@@ -113,6 +113,48 @@ describe("Realtime channel WebSocket", () => {
     expect(offline).toBe(true);
   });
 
+  it("edits and deletes own messages (author only)", async () => {
+    const h = { "content-type": "application/json", authorization: `Bearer ${token}` };
+    const created = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ text: "원본" }),
+    }).then((r) => r.json());
+    const postId = created.post.post_id;
+
+    const edited = await fetch(`${baseUrl}/posts/${postId}`, {
+      method: "PATCH",
+      headers: h,
+      body: JSON.stringify({ text: "수정됨" }),
+    }).then((r) => r.json());
+    expect(edited.post.text).toBe("수정됨");
+    expect(edited.post.edited_at).toBeTruthy();
+
+    // Another user cannot edit it.
+    const owner = (
+      await fetch(`${baseUrl}/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "owner@remixhub.dev", password: "password" }),
+      }).then((r) => r.json())
+    ).token;
+    const denied = await fetch(`${baseUrl}/posts/${postId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", authorization: `Bearer ${owner}` },
+      body: JSON.stringify({ text: "해킹" }),
+    });
+    expect(denied.status).toBe(403);
+
+    // Delete it (no body → no content-type).
+    const del = await fetch(`${baseUrl}/posts/${postId}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(del.status).toBe(200);
+    const posts = await fetch(`${baseUrl}/channels/ch_chat/posts`, { headers: h }).then((r) => r.json());
+    expect(posts.posts.some((p: { post_id: string }) => p.post_id === postId)).toBe(false);
+  });
+
   it("rejects an empty chat message", async () => {
     const res = await fetch(`${baseUrl}/channels/ch_chat/messages`, {
       method: "POST",
