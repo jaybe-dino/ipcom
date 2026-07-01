@@ -9,13 +9,14 @@ import {
   type IP,
   type LedgerEntry,
   type Listing,
+  type Membership,
   type Order,
   type Post,
   type PromptTemplate,
   type Space,
   type User,
 } from "@remix-hub/core";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { newId, now } from "../../ids.js";
 import { seedData } from "../seed.js";
@@ -27,6 +28,7 @@ import {
   ips,
   ledgerEntries,
   listings,
+  memberships,
   orders,
   posts,
   promptTemplates,
@@ -95,6 +97,10 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       order_id text PRIMARY KEY, listing_id text NOT NULL, buyer_id text NOT NULL,
       seller_id text NOT NULL, amount bigint NOT NULL, distribution jsonb NOT NULL,
       license_doc text, status text NOT NULL, created_at timestamptz NOT NULL
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS memberships (
+      space_id text NOT NULL, user_id text NOT NULL, joined_at timestamptz NOT NULL,
+      PRIMARY KEY (space_id, user_id)
     )`,
   ];
   for (const stmt of statements) await db.execute(stmt);
@@ -170,6 +176,7 @@ export class DrizzleRepo implements Repo {
     for (const c of data.channels) await this.db.insert(channels).values(c).onConflictDoNothing();
     for (const c of data.creations) await this.db.insert(creations).values(c).onConflictDoNothing();
     for (const p of data.posts) await this.db.insert(posts).values(p).onConflictDoNothing();
+    for (const m of data.memberships) await this.db.insert(memberships).values(m).onConflictDoNothing();
   }
 
   async getUser(id: string) {
@@ -202,6 +209,9 @@ export class DrizzleRepo implements Repo {
     const r = await this.db.select().from(ips).where(eq(ips.ip_id, id)).limit(1);
     return r[0] ?? null;
   }
+  async saveIp(ip: IP) {
+    await this.db.insert(ips).values(ip).onConflictDoUpdate({ target: ips.ip_id, set: ip });
+  }
   async setIpPolicy(id: string, policy: ConsentPolicy) {
     await this.db.update(ips).set({ policy }).where(eq(ips.ip_id, id));
   }
@@ -213,15 +223,72 @@ export class DrizzleRepo implements Repo {
     const r = await this.db.select().from(spaces).where(eq(spaces.space_id, id)).limit(1);
     return r[0] ? rowToSpace(r[0]) : null;
   }
+  async saveSpace(space: Space) {
+    await this.db.insert(spaces).values(space).onConflictDoUpdate({ target: spaces.space_id, set: space });
+  }
   async listChannels(spaceId: string): Promise<Channel[]> {
     const rows = await this.db.select().from(channels).where(eq(channels.space_id, spaceId));
     return rows.map((c) => ({ ...c, topic: c.topic ?? undefined }));
+  }
+  async getChannel(id: string): Promise<Channel | null> {
+    const r = await this.db.select().from(channels).where(eq(channels.channel_id, id)).limit(1);
+    return r[0] ? { ...r[0], topic: r[0].topic ?? undefined } : null;
+  }
+  async saveChannel(channel: Channel) {
+    await this.db
+      .insert(channels)
+      .values(channel)
+      .onConflictDoUpdate({ target: channels.channel_id, set: channel });
   }
   async listPosts(channelId: string): Promise<Post[]> {
     return (await this.db.select().from(posts).where(eq(posts.channel_id, channelId))).map(rowToPost);
   }
   async createPost(post: Post) {
     await this.db.insert(posts).values(post).onConflictDoNothing();
+  }
+
+  private async refreshMemberCount(spaceId: string) {
+    const rows = await this.db
+      .select({ uid: memberships.user_id })
+      .from(memberships)
+      .where(eq(memberships.space_id, spaceId));
+    await this.db.update(spaces).set({ member_count: rows.length }).where(eq(spaces.space_id, spaceId));
+  }
+  async addMember(m: Membership) {
+    await this.db.insert(memberships).values(m).onConflictDoNothing();
+    await this.refreshMemberCount(m.space_id);
+  }
+  async removeMember(spaceId: string, userId: string) {
+    await this.db
+      .delete(memberships)
+      .where(and(eq(memberships.space_id, spaceId), eq(memberships.user_id, userId)));
+    await this.refreshMemberCount(spaceId);
+  }
+  async isMember(spaceId: string, userId: string): Promise<boolean> {
+    const r = await this.db
+      .select({ uid: memberships.user_id })
+      .from(memberships)
+      .where(and(eq(memberships.space_id, spaceId), eq(memberships.user_id, userId)))
+      .limit(1);
+    return r.length > 0;
+  }
+  async listMembers(spaceId: string): Promise<User[]> {
+    const ms = await this.db
+      .select({ uid: memberships.user_id })
+      .from(memberships)
+      .where(eq(memberships.space_id, spaceId));
+    const ids = ms.map((m) => m.uid);
+    if (!ids.length) return [];
+    return (await this.db.select().from(users).where(inArray(users.user_id, ids))).map(rowToUser);
+  }
+  async listSpacesForUser(userId: string): Promise<Space[]> {
+    const ms = await this.db
+      .select({ sid: memberships.space_id })
+      .from(memberships)
+      .where(eq(memberships.user_id, userId));
+    const ids = ms.map((m) => m.sid);
+    if (!ids.length) return [];
+    return (await this.db.select().from(spaces).where(inArray(spaces.space_id, ids))).map(rowToSpace);
   }
 
   async getCreation(id: string) {

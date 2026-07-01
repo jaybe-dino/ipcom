@@ -7,6 +7,7 @@ import type {
   LedgerEntry,
   LedgerEventType,
   Listing,
+  Membership,
   Order,
   Post,
   PromptTemplate,
@@ -30,14 +31,25 @@ export interface Repo {
 
   // IP / Consent
   getIp(id: string): Promise<IP | null>;
+  saveIp(ip: IP): Promise<void>;
   setIpPolicy(id: string, policy: ConsentPolicy): Promise<void>;
 
   // Spaces / channels / posts
   listSpaces(): Promise<Space[]>;
   getSpace(id: string): Promise<Space | null>;
+  saveSpace(space: Space): Promise<void>;
   listChannels(spaceId: string): Promise<Channel[]>;
+  getChannel(id: string): Promise<Channel | null>;
+  saveChannel(channel: Channel): Promise<void>;
   listPosts(channelId: string): Promise<Post[]>;
   createPost(post: Post): Promise<void>;
+
+  // Community membership
+  addMember(m: Membership): Promise<void>;
+  removeMember(spaceId: string, userId: string): Promise<void>;
+  isMember(spaceId: string, userId: string): Promise<boolean>;
+  listMembers(spaceId: string): Promise<User[]>;
+  listSpacesForUser(userId: string): Promise<Space[]>;
 
   // Creations
   getCreation(id: string): Promise<Creation | null>;

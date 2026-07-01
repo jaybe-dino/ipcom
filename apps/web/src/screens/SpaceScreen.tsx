@@ -5,9 +5,6 @@ import { subscribeChannel } from "../realtime.js";
 import { useAsync } from "../useAsync.js";
 import { useSession } from "../useSession.js";
 
-const SPACE_ID = "space_artist_g";
-const DEFAULT_CHANNEL = "ch_chat";
-
 const PLUGINS: { action: CreativeAction; label: string }[] = [
   { action: "image", label: "🖼️ 이미지" },
   { action: "video_recast", label: "🎬 영상" },
@@ -19,10 +16,11 @@ const PLUGINS: { action: CreativeAction; label: string }[] = [
 const COLORS = ["#7c5cff", "#23d6a0", "#3aa0ff", "#ffb020", "#ff5d6c"];
 const colorFor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
-export function SpaceScreen({ onExport }: { onExport: (creationId: string) => void }) {
+export function SpaceScreen({ spaceId, onExport }: { spaceId: string; onExport: (creationId: string) => void }) {
   const user = useSession();
-  const space = useAsync(() => api.getSpace(SPACE_ID), []);
-  const [activeChannel, setActiveChannel] = useState(DEFAULT_CHANNEL);
+  const [spaceVersion, setSpaceVersion] = useState(0);
+  const space = useAsync(() => api.getSpace(spaceId), [spaceId, spaceVersion]);
+  const [activeChannel, setActiveChannel] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [creations, setCreations] = useState<Record<string, Creation>>({});
   const [authors, setAuthors] = useState<Record<string, AuthorRef>>({});
@@ -57,12 +55,23 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
     }
   }
 
+  // Pick a default channel once the space's channels load (or space changes).
+  const channels = space.data?.channels ?? [];
   useEffect(() => {
-    void loadFeed(activeChannel);
+    if (channels.length === 0) return;
+    if (!channels.some((c) => c.channel_id === activeChannel)) {
+      const first = channels.find((c) => c.type === "community") ?? channels[0];
+      if (first) setActiveChannel(first.channel_id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [space.data]);
+
+  useEffect(() => {
+    if (activeChannel) void loadFeed(activeChannel);
   }, [activeChannel]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeChannel) return;
     return subscribeChannel(activeChannel, (e) => {
       if (e.type === "post.created") {
         upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
@@ -90,7 +99,7 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
     setBusy(true);
     setMsg(null);
     try {
-      const { creation } = await api.generate(SPACE_ID, { action, prompt, channel_id: activeChannel });
+      const { creation } = await api.generate(spaceId, { action, prompt, channel_id: activeChannel });
       upsert(
         {
           post_id: `local_${creation.creation_id}`,
@@ -120,9 +129,19 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
     }
   }
 
-  const channels = space.data?.channels ?? [];
   const grouped = groupChannels(channels);
   const activeName = channels.find((c) => c.channel_id === activeChannel)?.name ?? "채널";
+
+  async function addChannel() {
+    const name = window.prompt("새 채널 이름");
+    if (!name?.trim()) return;
+    try {
+      await api.createChannel(spaceId, { name: name.trim(), type: "community" });
+      setSpaceVersion((v) => v + 1);
+    } catch (e) {
+      setMsg({ kind: "err", text: `채널 생성 실패: ${(e as Error).message}` });
+    }
+  }
 
   return (
     <section>
@@ -142,11 +161,19 @@ export function SpaceScreen({ onExport }: { onExport: (creationId: string) => vo
 
         <div className="channels">
           <div className="sp-name">
-            {space.data?.space.name ?? "스페이스"} <span className="pill g">인증</span>
+            <span>{space.data?.space.name ?? "스페이스"}</span>
+            <span className="pill g">👤 {space.data?.space.member_count ?? 0}</span>
           </div>
           {grouped.map((grp) => (
             <div key={grp.title}>
-              <div className="ch-grp">{grp.title}</div>
+              <div className="ch-grp">
+                {grp.title}
+                {grp.title === "커뮤니티" && (
+                  <span style={{ float: "right", cursor: "pointer", color: "var(--acc)" }} onClick={addChannel}>
+                    ＋
+                  </span>
+                )}
+              </div>
               {grp.items.map((c) => (
                 <div
                   key={c.channel_id}

@@ -3,6 +3,7 @@ import {
   type Channel,
   type Creation,
   type IP,
+  type Membership,
   type Post,
   type Space,
   type User,
@@ -16,6 +17,7 @@ export interface SeedData {
   channels: Channel[];
   creations: Creation[];
   posts: Post[];
+  memberships: Membership[];
 }
 
 export function seedData(now: string): SeedData {
@@ -96,5 +98,9 @@ export function seedData(now: string): SeedData {
     channels,
     creations: [creation],
     posts: [post],
+    memberships: [
+      { space_id: space.space_id, user_id: owner.user_id, joined_at: now },
+      { space_id: space.space_id, user_id: creator.user_id, joined_at: now },
+    ],
   };
 }

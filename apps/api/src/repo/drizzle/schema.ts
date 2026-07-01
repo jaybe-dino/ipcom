@@ -9,7 +9,7 @@ import type {
   UseType,
   Verification,
 } from "@remix-hub/core";
-import { bigint, boolean, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
 /** Postgres schema for REMIX HUB. Rich domain objects are stored as jsonb. */
 
@@ -139,6 +139,16 @@ export const orders = pgTable("orders", {
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
 });
 
+export const memberships = pgTable(
+  "memberships",
+  {
+    space_id: text("space_id").notNull(),
+    user_id: text("user_id").notNull(),
+    joined_at: timestamp("joined_at", { mode: "string", withTimezone: true }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.space_id, t.user_id] }) }),
+);
+
 export const schema = {
   users,
   ips,
@@ -151,4 +161,5 @@ export const schema = {
   promptTemplates,
   listings,
   orders,
+  memberships,
 };

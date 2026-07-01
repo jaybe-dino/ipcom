@@ -32,3 +32,10 @@ export interface Post {
   creation_id?: UUID | null;
   created_at: ISODateTime;
 }
+
+/** A user's membership in a space (community participation). */
+export interface Membership {
+  space_id: UUID;
+  user_id: UUID;
+  joined_at: ISODateTime;
+}

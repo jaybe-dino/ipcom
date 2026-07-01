@@ -20,11 +20,15 @@ const NAV: { id: ScreenId; label: string }[] = [
   { id: "market", label: "⑥ 마켓플레이스" },
 ];
 
+const SEED_SPACE = "space_artist_g";
+
 export function App() {
   const user = useSession();
   const [screen, setScreen] = useState<ScreenId>("space");
   // The creation currently selected for export (drives the Gate screen).
   const [exportCreationId, setExportCreationId] = useState<string | null>(null);
+  // Which community space the chat screen is showing.
+  const [spaceId, setSpaceId] = useState<string>(SEED_SPACE);
 
   const go = (id: ScreenId) => {
     setScreen(id);
@@ -57,9 +61,17 @@ export function App() {
         ))}
       </div>
 
-      {screen === "home" && <HomeScreen onEnter={() => go("space")} />}
+      {screen === "home" && (
+        <HomeScreen
+          onEnter={(id) => {
+            setSpaceId(id);
+            go("space");
+          }}
+        />
+      )}
       {screen === "space" && (
         <SpaceScreen
+          spaceId={spaceId}
           onExport={(creationId) => {
             setExportCreationId(creationId);
             go("gate");

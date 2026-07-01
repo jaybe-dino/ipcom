@@ -7,6 +7,7 @@ import {
   type IP,
   type LedgerEntry,
   type Listing,
+  type Membership,
   type Order,
   type Post,
   type PromptTemplate,
@@ -31,6 +32,8 @@ export class MemoryRepo implements Repo {
   private listings = new Map<string, Listing>();
   private templates = new Map<string, PromptTemplate>();
   private orders = new Map<string, Order>();
+  /** space_id → set of member user_ids. */
+  private members = new Map<string, Set<string>>();
   private ledger = new LicenseLedger();
 
   constructor(seed = true) {
@@ -48,6 +51,11 @@ export class MemoryRepo implements Repo {
     for (const c of data.channels) this.channels.set(c.channel_id, c);
     for (const c of data.creations) this.creations.set(c.creation_id, c);
     for (const p of data.posts) this.posts.set(p.post_id, p);
+    for (const m of data.memberships) {
+      let set = this.members.get(m.space_id);
+      if (!set) this.members.set(m.space_id, (set = new Set()));
+      set.add(m.user_id);
+    }
   }
 
   async getUser(id: string) {
@@ -75,6 +83,9 @@ export class MemoryRepo implements Repo {
   async getIp(id: string) {
     return this.ips.get(id) ?? null;
   }
+  async saveIp(ip: IP) {
+    this.ips.set(ip.ip_id, ip);
+  }
   async setIpPolicy(id: string, policy: ConsentPolicy) {
     const ip = this.ips.get(id);
     if (ip) ip.policy = policy;
@@ -86,14 +97,47 @@ export class MemoryRepo implements Repo {
   async getSpace(id: string) {
     return this.spaces.get(id) ?? null;
   }
+  async saveSpace(space: Space) {
+    this.spaces.set(space.space_id, space);
+  }
   async listChannels(spaceId: string) {
     return [...this.channels.values()].filter((c) => c.space_id === spaceId);
+  }
+  async getChannel(id: string) {
+    return this.channels.get(id) ?? null;
+  }
+  async saveChannel(channel: Channel) {
+    this.channels.set(channel.channel_id, channel);
   }
   async listPosts(channelId: string) {
     return [...this.posts.values()].filter((p) => p.channel_id === channelId);
   }
   async createPost(post: Post) {
     this.posts.set(post.post_id, post);
+  }
+
+  async addMember(m: Membership) {
+    let set = this.members.get(m.space_id);
+    if (!set) this.members.set(m.space_id, (set = new Set()));
+    set.add(m.user_id);
+    const space = this.spaces.get(m.space_id);
+    if (space) space.member_count = set.size;
+  }
+  async removeMember(spaceId: string, userId: string) {
+    const set = this.members.get(spaceId);
+    set?.delete(userId);
+    const space = this.spaces.get(spaceId);
+    if (space) space.member_count = set?.size ?? 0;
+  }
+  async isMember(spaceId: string, userId: string) {
+    return this.members.get(spaceId)?.has(userId) ?? false;
+  }
+  async listMembers(spaceId: string) {
+    const ids = [...(this.members.get(spaceId) ?? [])];
+    return ids.map((id) => this.users.get(id)).filter(Boolean) as User[];
+  }
+  async listSpacesForUser(userId: string) {
+    return [...this.spaces.values()].filter((s) => this.members.get(s.space_id)?.has(userId));
   }
 
   async getCreation(id: string) {

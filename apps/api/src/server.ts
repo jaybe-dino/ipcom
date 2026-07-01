@@ -9,6 +9,7 @@ import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
 import type { LicenseManifest } from "@remix-hub/core";
 import { MemoryAssetStore } from "./assets/store.js";
+import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import { renderShareCard, renderSharePage } from "./share.js";
@@ -30,6 +31,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const assets = new MemoryAssetStore();
   const service = new RemixService(repo, gateway, bus, assets);
   const market = new MarketService(repo, assets);
+  const community = new CommunityService(repo);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
@@ -54,6 +56,50 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const channels = await repo.listChannels(id);
     return { space: ctx.space, ip: ctx.ip, channels };
   });
+
+  // Create a space (+ IP + default channels + creator membership).
+  app.post("/spaces", auth(), async (req, reply) => {
+    const body = req.body as { name: string };
+    const result = await community.createSpace({ ownerId: uid(req), name: body.name });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ space: result.value });
+  });
+
+  // Create a channel in a space (members only).
+  app.post("/spaces/:id/channels", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { name: string; type?: "creation" | "community" | "market"; topic?: string };
+    const result = await community.createChannel({
+      spaceId: id,
+      userId: uid(req),
+      name: body.name,
+      type: body.type,
+      topic: body.topic,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ channel: result.value });
+  });
+
+  app.post("/spaces/:id/join", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const result = await community.join(id, uid(req));
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return { space: result.value };
+  });
+
+  app.post("/spaces/:id/leave", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await community.leave(id, uid(req));
+    return { left: true };
+  });
+
+  app.get("/spaces/:id/members", async (req) => {
+    const { id } = req.params as { id: string };
+    const members = await community.members(id);
+    return { members: members.map((u) => ({ user_id: u.user_id, display_name: u.display_name, role: u.role })) };
+  });
+
+  app.get("/me/spaces", auth(), async (req) => ({ spaces: await community.mySpaces(uid(req)) }));
 
   app.get("/channels/:id/posts", async (req) => {
     const { id } = req.params as { id: string };
