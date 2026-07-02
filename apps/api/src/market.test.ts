@@ -100,4 +100,32 @@ describe("Marketplace", () => {
     const res = await app.inject({ method: "GET", url: "/ledger" });
     expect(res.json().integrity_ok).toBe(true);
   });
+
+  it("buyer portal lists my purchases and serves my license, but not others'", async () => {
+    // The owner has bought at least one listing in earlier tests.
+    const mine = await app.inject({ method: "GET", url: "/me/orders", headers: bearer(ownerToken) });
+    expect(mine.statusCode).toBe(200);
+    const orders = mine.json().orders as { order_id: string; buyer_id: string; listing_title: string; license_doc?: string }[];
+    expect(orders.length).toBeGreaterThanOrEqual(1);
+    expect(orders.every((o) => o.buyer_id === "user_owner_g")).toBe(true);
+    expect(orders[0]!.listing_title).toBeTruthy();
+
+    const withLicense = orders.find((o) => o.license_doc);
+    expect(withLicense).toBeTruthy();
+    const lic = await app.inject({
+      method: "GET",
+      url: `/me/orders/${withLicense!.order_id}/license`,
+      headers: bearer(ownerToken),
+    });
+    expect(lic.statusCode).toBe(200);
+    expect(lic.json().license).toBeTruthy();
+
+    // A different user cannot download someone else's license.
+    const forbidden = await app.inject({
+      method: "GET",
+      url: `/me/orders/${withLicense!.order_id}/license`,
+      headers: bearer(creatorToken),
+    });
+    expect(forbidden.statusCode).toBe(403);
+  });
 });

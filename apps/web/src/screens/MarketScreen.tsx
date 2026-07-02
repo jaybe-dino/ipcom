@@ -8,8 +8,25 @@ export function MarketScreen() {
   const user = useSession();
   const [version, setVersion] = useState(0);
   const catalog = useAsync(() => api.marketCatalog(), [version]);
+  const orders = useAsync(() => (user ? api.myOrders() : Promise.resolve({ orders: [] })), [version, !!user]);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+
+  /** Fetch a purchased order's license manifest and download it as JSON. */
+  async function downloadLicense(orderId: string) {
+    try {
+      const { license } = await api.orderLicense(orderId);
+      const blob = new Blob([JSON.stringify(license, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `license-${orderId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setMsg({ kind: "err", text: e instanceof ApiError ? e.message : "라이선스를 불러오지 못했습니다." });
+    }
+  }
 
   async function buy(listing: Listing) {
     setBusy(listing.listing_id);
@@ -72,6 +89,47 @@ export function MarketScreen() {
           </div>
         ))}
       </div>
+
+      {user && (orders.data?.orders.length ?? 0) > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <div className="scr-head">
+            <h3>🧾 내 구매 · 라이선스</h3>
+            <p>구매한 작품·템플릿과 자동 발급된 라이선스 문서입니다.</p>
+          </div>
+          <table>
+            <tbody>
+              <tr>
+                <th>항목</th>
+                <th>금액</th>
+                <th>상태</th>
+                <th>구매일</th>
+                <th>라이선스</th>
+              </tr>
+              {orders.data!.orders.map((o) => (
+                <tr key={o.order_id}>
+                  <td>{o.listing_title}</td>
+                  <td>{krw(o.amount)}</td>
+                  <td>
+                    <span className={`pill ${o.status === "paid" ? "g" : "w"}`}>{o.status}</span>
+                  </td>
+                  <td style={{ fontSize: 11, color: "var(--mut)" }}>
+                    {new Date(o.created_at).toLocaleDateString("ko-KR")}
+                  </td>
+                  <td>
+                    {o.license_doc ? (
+                      <button className="btn gho" onClick={() => downloadLicense(o.order_id)}>
+                        ⬇ 다운로드
+                      </button>
+                    ) : (
+                      <span className="hint">미발급</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

@@ -235,6 +235,9 @@ export function createApi(cfg: ClientConfig) {
     buyListing: (listingId: string) =>
       req<{ order: Order }>(`/market/listings/${listingId}/buy`, { method: "POST" }),
     listOrders: () => req<{ orders: Order[] }>("/market/orders"),
+    // Buyer portal: my purchases + per-order license manifest.
+    myOrders: () => req<{ orders: (Order & { listing_title: string })[] }>("/me/orders"),
+    orderLicense: (id: string) => req<{ license: unknown }>(`/me/orders/${id}/license`),
     getConsent: (ipId: string) =>
       req<{ ip_id: string; policy: ConsentPolicy }>(`/ip/${ipId}/consent`),
     getLedger: () =>

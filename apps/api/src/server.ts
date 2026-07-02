@@ -493,6 +493,29 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
 
   app.get("/market/orders", async () => ({ orders: await repo.listOrders() }));
 
+  // Buyer portal: the signed-in user's purchases, enriched with listing titles.
+  app.get("/me/orders", auth(), async (req) => {
+    const me = uid(req);
+    const [orders, listings] = await Promise.all([repo.listOrders(), market.catalog()]);
+    const titleOf = new Map(listings.listings.map((l) => [l.listing_id, l.title]));
+    const mine = orders
+      .filter((o) => o.buyer_id === me)
+      .map((o) => ({ ...o, listing_title: titleOf.get(o.listing_id) ?? o.listing_id }));
+    return { orders: mine };
+  });
+
+  // Download the license manifest issued for one of the buyer's own orders.
+  app.get("/me/orders/:id/license", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const order = (await repo.listOrders()).find((o) => o.order_id === id);
+    if (!order) return reply.code(404).send({ error: "order_not_found" });
+    if (order.buyer_id !== uid(req)) return reply.code(403).send({ error: "not_order_owner" });
+    if (!order.license_doc) return reply.code(404).send({ error: "license_not_issued" });
+    const asset = await assets.get(order.license_doc);
+    if (!asset) return reply.code(404).send({ error: "license_not_found" });
+    return { license: asset.data };
+  });
+
   // --- Public share (external platforms: OG/Twitter rich previews) ---
   const absoluteBase = (req: { headers: Record<string, unknown> }): string => {
     const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || "https";
