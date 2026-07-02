@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:e2e": "pnpm --filter @remix-hub/core build && pnpm --filter @remix-hub/client-core build && pnpm --filter @remix-hub/api build && VITE_API_BASE=\"\" pnpm --filter @remix-hub/web build && pnpm --filter @remix-hub/e2e smoke",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

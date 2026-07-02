@@ -6,3 +6,6 @@ packages:
   - "packages/*"
   - "apps/web"
   - "apps/api"
+  # Browser E2E harness. No build/test/typecheck script, so `turbo build`/`test`
+  # skip it; run explicitly with `pnpm --filter @remix-hub/e2e smoke`.
+  - "e2e"

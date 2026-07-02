@@ -1,0 +1,13 @@
+{
+  "name": "@remix-hub/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "REMIX HUB browser E2E smoke — drives the single-service app (login → community chat → AI generation) with a real Chromium.",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.1"
+  }
+}

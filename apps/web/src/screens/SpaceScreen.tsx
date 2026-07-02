@@ -55,7 +55,7 @@ export function SpaceScreen({
 
   function upsert(post: Post, author?: AuthorRef | null, creation?: Creation | null) {
     if (author) setAuthors((a) => ({ ...a, [author.user_id]: author }));
-    if (creation) setCreations((c) => ({ ...c, [creation.creation_id]: creation }));
+    if (creation) setCreations((c) => mergeCreation(c, creation));
     setPosts((p) => {
       if (p.some((x) => x.post_id === post.post_id)) return p;
       if (post.creation_id && p.some((x) => x.creation_id === post.creation_id)) return p;
@@ -162,7 +162,7 @@ export function SpaceScreen({
         upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
       } else if (e.type === "creation.updated") {
         const cr = e.creation as Creation;
-        setCreations((c) => ({ ...c, [cr.creation_id]: cr }));
+        setCreations((c) => mergeCreation(c, cr));
       } else if (e.type === "reaction.updated") {
         applyReaction(e.post_id as string, e.emoji as string, e.added as boolean, e.user_id as string);
       } else if (e.type === "post.updated") {
@@ -534,6 +534,20 @@ export function SpaceScreen({
       </div>
     </section>
   );
+}
+
+// Merge a creation into the map without letting a stale "generating" clobber a
+// newer terminal state. The optimistic write in generate(), the WS post.created
+// echo, and the WS creation.updated can arrive in any order; ranking keeps the
+// most-progressed status so a resolved card never reverts to the spinner.
+const CREATION_RANK: Record<string, number> = { generating: 0, failed: 1, generated: 1 };
+function mergeCreation(
+  map: Record<string, Creation>,
+  incoming: Creation,
+): Record<string, Creation> {
+  const prev = map[incoming.creation_id];
+  if (prev && (CREATION_RANK[incoming.status] ?? 0) < (CREATION_RANK[prev.status] ?? 0)) return map;
+  return { ...map, [incoming.creation_id]: incoming };
 }
 
 function groupChannels(channels: Channel[]) {

@@ -37,3 +37,32 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: verify
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Fetch just Chromium into PLAYWRIGHT_BROWSERS_PATH; the smoke discovers it
+      # there (and self-skips if this step is ever unavailable).
+      - name: Install Chromium
+        run: pnpm dlx playwright@1.49.1 install --with-deps chromium
+
+      - name: Browser E2E (auth → chat → generation)
+        run: pnpm test:e2e
