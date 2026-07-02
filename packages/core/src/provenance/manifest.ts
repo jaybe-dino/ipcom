@@ -27,8 +27,12 @@ export interface LicenseManifest {
     distribution: { owner: Money; creator: Money; platform: Money };
   };
   issued_at: ISODateTime;
-  /** sha256 over the manifest contents (excluding this field). */
+  /** sha256 over the manifest contents (excluding this + signature fields). */
   manifest_hash: string;
+  /** Detached signature over manifest_hash (set server-side; C2PA-style). */
+  provenance_signature?: string;
+  /** Identifier of the signing key. */
+  signing_key_id?: string;
 }
 
 const AI_LABEL_TEXT = "AI 생성 콘텐츠 · REMIX HUB";
@@ -88,6 +92,7 @@ export function buildLicenseManifest(input: ManifestInput): LicenseManifest {
 
 /** Verify a manifest's seal. Returns true if the hash matches its contents. */
 export function verifyManifest(manifest: LicenseManifest): boolean {
-  const { manifest_hash, ...rest } = manifest;
+  // Exclude the hash itself and the detached signature fields (added post-seal).
+  const { manifest_hash, provenance_signature, signing_key_id, ...rest } = manifest;
   return sha256Hex(canonicalize(rest)) === manifest_hash;
 }

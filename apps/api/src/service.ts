@@ -12,6 +12,7 @@ import {
 } from "@remix-hub/core";
 import { MemoryAssetStore, type AssetStore } from "./assets/store.js";
 import { KeywordModerator, type Moderator } from "./moderation/moderator.js";
+import { signManifestHash } from "./provenance/sign.js";
 import { newId, now } from "./ids.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import type { EventBus } from "./realtime/bus.js";
@@ -451,6 +452,9 @@ export class RemixService {
       distribution,
       issued_at: now(),
     });
+    const sig = signManifestHash(manifest.manifest_hash);
+    manifest.provenance_signature = sig.signature;
+    manifest.signing_key_id = sig.key_id;
     exportReq.license_doc = await this.assets.put({
       scope: "export",
       content_type: "application/vnd.remixhub.license+json",

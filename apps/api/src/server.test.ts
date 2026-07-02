@@ -186,4 +186,29 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     const page = await app.inject({ method: "GET", url: "/share/exp_nope" });
     expect(page.statusCode).toBe(404);
   });
+
+  it("issues a signed license and verifies its seal + signature", async () => {
+    const gen = await app.inject({
+      method: "POST",
+      url: "/spaces/space_artist_g/generations",
+      headers: bearer(creatorToken),
+      payload: { action: "image", prompt: "signed license" },
+    });
+    const creationId = gen.json().creation.creation_id;
+    const exp = await app.inject({
+      method: "POST",
+      url: `/generations/${creationId}/export`,
+      headers: bearer(creatorToken),
+      payload: { use_type: "personal" },
+    });
+    const exportId = exp.json().export.export_id;
+    await app.inject({ method: "POST", url: `/exports/${exportId}/pay`, headers: bearer(creatorToken) });
+
+    const lic = (await app.inject({ method: "GET", url: `/exports/${exportId}/license` })).json().license;
+    expect(lic.provenance_signature).toMatch(/^[0-9a-f]{64}$/);
+    expect(lic.signing_key_id).toBeTruthy();
+
+    const verify = await app.inject({ method: "GET", url: `/exports/${exportId}/verify` });
+    expect(verify.json()).toMatchObject({ manifest_ok: true, signature_ok: true });
+  });
 });

@@ -9,6 +9,7 @@ import {
 } from "@remix-hub/core";
 import type { AssetStore } from "./assets/store.js";
 import { newId, now } from "./ids.js";
+import { signManifestHash } from "./provenance/sign.js";
 import type { Repo } from "./repo/types.js";
 
 type Result<T> = { ok: true; value: T } | { ok: false; status: number; reason: string };
@@ -135,6 +136,9 @@ export class MarketService {
       issued_at: now(),
       ...manifestFields,
     });
+    const sig = signManifestHash(manifest.manifest_hash);
+    manifest.provenance_signature = sig.signature;
+    manifest.signing_key_id = sig.key_id;
     const licenseDoc = await this.assets.put({
       scope: "export",
       content_type: "application/vnd.remixhub.license+json",

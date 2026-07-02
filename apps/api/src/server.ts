@@ -3,7 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
-import { revisePolicy, type CreativeAction, type UseType } from "@remix-hub/core";
+import { revisePolicy, verifyManifest, type CreativeAction, type UseType } from "@remix-hub/core";
+import { verifyManifestSignature } from "./provenance/sign.js";
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
@@ -329,6 +330,20 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const asset = await assets.get(exportReq.license_doc);
     if (!asset) return reply.code(404).send({ error: "license_not_found" });
     return { license: asset.data };
+  });
+
+  // Verify a license: manifest seal + detached provenance signature (public).
+  app.get("/exports/:id/verify", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const exportReq = await repo.getExport(id);
+    const asset = exportReq?.license_doc ? await assets.get(exportReq.license_doc) : null;
+    if (!asset) return reply.code(404).send({ error: "license_not_found" });
+    const manifest = asset.data as LicenseManifest;
+    const manifest_ok = verifyManifest(manifest);
+    const signature_ok = manifest.provenance_signature
+      ? verifyManifestSignature(manifest.manifest_hash, manifest.provenance_signature)
+      : false;
+    return { manifest_ok, signature_ok, signing_key_id: manifest.signing_key_id ?? null };
   });
 
   // Asset access: export-scoped assets (license proofs) are public; internal
