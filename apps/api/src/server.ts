@@ -504,6 +504,20 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     return { orders: mine };
   });
 
+  // Seller portal: orders where the signed-in user is the seller, plus totals.
+  app.get("/me/sales", auth(), async (req) => {
+    const me = uid(req);
+    const [orders, listings] = await Promise.all([repo.listOrders(), market.catalog()]);
+    const titleOf = new Map(listings.listings.map((l) => [l.listing_id, l.title]));
+    const mine = orders
+      .filter((o) => o.seller_id === me)
+      .map((o) => ({ ...o, listing_title: titleOf.get(o.listing_id) ?? o.listing_id }));
+    const gross = mine.reduce((sum, o) => sum + o.amount, 0);
+    const earned = mine.reduce((sum, o) => sum + o.distribution.owner + o.distribution.creator, 0);
+    const platform_fees = mine.reduce((sum, o) => sum + o.distribution.platform, 0);
+    return { sales: mine, totals: { count: mine.length, gross, earned, platform_fees } };
+  });
+
   // Download the license manifest issued for one of the buyer's own orders.
   app.get("/me/orders/:id/license", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };

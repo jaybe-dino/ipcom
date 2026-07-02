@@ -238,6 +238,12 @@ export function createApi(cfg: ClientConfig) {
     // Buyer portal: my purchases + per-order license manifest.
     myOrders: () => req<{ orders: (Order & { listing_title: string })[] }>("/me/orders"),
     orderLicense: (id: string) => req<{ license: unknown }>(`/me/orders/${id}/license`),
+    // Seller portal: my sales + earnings totals.
+    mySales: () =>
+      req<{
+        sales: (Order & { listing_title: string })[];
+        totals: { count: number; gross: number; earned: number; platform_fees: number };
+      }>("/me/sales"),
     getConsent: (ipId: string) =>
       req<{ ip_id: string; policy: ConsentPolicy }>(`/ip/${ipId}/consent`),
     getLedger: () =>

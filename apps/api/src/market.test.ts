@@ -128,4 +128,19 @@ describe("Marketplace", () => {
     });
     expect(forbidden.statusCode).toBe(403);
   });
+
+  it("seller portal reports the creator's sales and earnings", async () => {
+    // minji (creator) listed and sold pieces to the owner in earlier tests.
+    const res = await app.inject({ method: "GET", url: "/me/sales", headers: bearer(creatorToken) });
+    expect(res.statusCode).toBe(200);
+    const { sales, totals } = res.json() as {
+      sales: { seller_id: string }[];
+      totals: { count: number; gross: number; earned: number; platform_fees: number };
+    };
+    expect(sales.length).toBeGreaterThanOrEqual(1);
+    expect(sales.every((s) => s.seller_id === "user_minji")).toBe(true);
+    expect(totals.count).toBe(sales.length);
+    // Earnings + platform fees reconcile to the gross transaction volume.
+    expect(totals.earned + totals.platform_fees).toBe(totals.gross);
+  });
 });

@@ -9,6 +9,13 @@ export function MarketScreen() {
   const [version, setVersion] = useState(0);
   const catalog = useAsync(() => api.marketCatalog(), [version]);
   const orders = useAsync(() => (user ? api.myOrders() : Promise.resolve({ orders: [] })), [version, !!user]);
+  const sales = useAsync(
+    () =>
+      user
+        ? api.mySales()
+        : Promise.resolve({ sales: [], totals: { count: 0, gross: 0, earned: 0, platform_fees: 0 } }),
+    [version, !!user],
+  );
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -123,6 +130,53 @@ export function MarketScreen() {
                     ) : (
                       <span className="hint">미발급</span>
                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {user && (sales.data?.totals.count ?? 0) > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <div className="scr-head">
+            <h3>💰 판매 내역 · 수익</h3>
+            <p>내가 등록한 리스팅의 판매와 정산 수익(플랫폼 수수료 제외)입니다.</p>
+          </div>
+          <div className="grid g3" style={{ marginBottom: 12 }}>
+            <div className="box">
+              <p>총 판매</p>
+              <h3 style={{ fontSize: 22, marginTop: 4 }}>{sales.data!.totals.count}건</h3>
+              <div className="hint" style={{ marginTop: 4 }}>거래액 {krw(sales.data!.totals.gross)}</div>
+            </div>
+            <div className="box">
+              <p>내 수익</p>
+              <h3 style={{ fontSize: 22, marginTop: 4, color: "var(--acc2)" }}>{krw(sales.data!.totals.earned)}</h3>
+              <div className="hint" style={{ marginTop: 4 }}>소유자+창작자 배분 합계</div>
+            </div>
+            <div className="box">
+              <p>플랫폼 수수료</p>
+              <h3 style={{ fontSize: 22, marginTop: 4 }}>{krw(sales.data!.totals.platform_fees)}</h3>
+            </div>
+          </div>
+          <table>
+            <tbody>
+              <tr>
+                <th>항목</th>
+                <th>거래액</th>
+                <th>내 수익</th>
+                <th>구매자</th>
+                <th>일자</th>
+              </tr>
+              {sales.data!.sales.map((o) => (
+                <tr key={o.order_id}>
+                  <td>{o.listing_title}</td>
+                  <td>{krw(o.amount)}</td>
+                  <td style={{ color: "var(--acc2)" }}>{krw(o.distribution.owner + o.distribution.creator)}</td>
+                  <td style={{ fontSize: 11 }}>{o.buyer_id}</td>
+                  <td style={{ fontSize: 11, color: "var(--mut)" }}>
+                    {new Date(o.created_at).toLocaleDateString("ko-KR")}
                   </td>
                 </tr>
               ))}
