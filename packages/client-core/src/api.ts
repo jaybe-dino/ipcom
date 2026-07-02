@@ -11,6 +11,7 @@ import type {
   Post,
   PromptTemplate,
   ReactionSummary,
+  SettlementSummary,
   Space,
   User,
   UseType,
@@ -236,6 +237,8 @@ export function createApi(cfg: ClientConfig) {
       req<{ ip_id: string; policy: ConsentPolicy }>(`/ip/${ipId}/consent`),
     getLedger: () =>
       req<{ entries: LedgerEntry[]; head_hash: string; integrity_ok: boolean }>("/ledger"),
+    settlementSummary: (days = 14) =>
+      req<SettlementSummary>(`/settlement/summary?days=${days}`),
   };
 
   return api;

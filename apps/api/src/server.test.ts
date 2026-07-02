@@ -127,6 +127,17 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     expect(res.json().integrity_ok).toBe(true);
   });
 
+  it("aggregates a settlement summary from the ledger", async () => {
+    const res = await app.inject({ method: "GET", url: "/settlement/summary?days=7" });
+    expect(res.statusCode).toBe(200);
+    const s = res.json();
+    // The happy-path commercial export above settled 500,000 with the 60/25/15 split.
+    expect(s.total_fees).toBeGreaterThanOrEqual(500_000);
+    expect(s.distribution.platform).toBeGreaterThan(0);
+    expect(s.daily).toHaveLength(7);
+    expect(s.by_source.export.count).toBeGreaterThanOrEqual(1);
+  });
+
   it("issues a sealed license manifest with a visible AI label on settlement", async () => {
     const gen = await app.inject({
       method: "POST",

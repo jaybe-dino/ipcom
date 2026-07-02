@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
-import { isLicenseExpired, revisePolicy, verifyManifest, type CreativeAction, type UseType } from "@remix-hub/core";
+import { isLicenseExpired, revisePolicy, summarizeSettlements, verifyManifest, type CreativeAction, type UseType } from "@remix-hub/core";
 import { verifyManifestSignature } from "./provenance/sign.js";
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
@@ -569,6 +569,14 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     head_hash: await repo.ledgerHead(),
     integrity_ok: (await repo.verifyLedger()) === -1,
   }));
+
+  // Settlement analytics: aggregate revenue/split/daily trend from the ledger.
+  app.get("/settlement/summary", async (req) => {
+    const q = req.query as { days?: string };
+    const days = q.days ? Math.min(90, Math.max(1, Number(q.days) || 14)) : 14;
+    const entries = await repo.listLedger();
+    return summarizeSettlements(entries, { days, now: new Date().toISOString() });
+  });
 
   // --- Static web (single-service deploy) ---
   // When the built web app is present, serve it from the same origin so one

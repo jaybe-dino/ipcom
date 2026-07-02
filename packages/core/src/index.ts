@@ -68,3 +68,11 @@ export {
   templateOrderDistribution,
   TEMPLATE_TAKE_RATE,
 } from "./market/pricing.js";
+
+// Settlement analytics
+export {
+  summarizeSettlements,
+  type SettlementSummary,
+  type DailyPoint,
+  type Split,
+} from "./settlement/summary.js";
