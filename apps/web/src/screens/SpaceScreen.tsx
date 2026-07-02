@@ -62,6 +62,10 @@ export function SpaceScreen({
   const [msg, setMsg] = useState<{ kind: "err" | "ok"; text: string } | null>(null);
   const [remixParent, setRemixParent] = useState<Creation | null>(null);
   const [pluginId, setPluginId] = useState<string>(""); // "" = auto (Rights Engine picks)
+  const [lineage, setLineage] = useState<
+    { creation: Creation; ancestors: Creation[]; children: Creation[]; depth: number } | null
+  >(null);
+  const [lineageBusy, setLineageBusy] = useState(false);
   const inventory = useAsync(() => api.plugins(), []);
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -281,6 +285,18 @@ export function SpaceScreen({
     setMsg({ kind: "ok", text: "리믹스 원본을 선택했습니다. 프롬프트를 다듬고 생성하세요." });
   }
 
+  /** Open the lineage (버전/계보) tree for a creation. */
+  async function openLineage(creationId: string) {
+    setLineageBusy(true);
+    try {
+      setLineage(await api.lineage(creationId));
+    } catch (e) {
+      setMsg({ kind: "err", text: e instanceof ApiError ? e.message : "계보를 불러오지 못했습니다." });
+    } finally {
+      setLineageBusy(false);
+    }
+  }
+
   const grouped = groupChannels(channels);
   const activeName = channels.find((c) => c.channel_id === activeChannel)?.name ?? "채널";
   const postsById: Record<string, Post> = Object.fromEntries(posts.map((p) => [p.post_id, p]));
@@ -440,6 +456,9 @@ export function SpaceScreen({
                           >
                             🔗 리믹스
                           </button>
+                          <button className="btn gho" disabled={lineageBusy} onClick={() => openLineage(cr.creation_id)}>
+                            🌿 계보
+                          </button>
                         </div>
                       </div>
                     )}
@@ -591,7 +610,74 @@ export function SpaceScreen({
             ))}
         </div>
       </div>
+
+      {lineage && (
+        <div className="lin-overlay" onClick={() => setLineage(null)}>
+          <div className="lin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="lin-head">
+              <b>🌿 버전 계보</b>
+              <span className="mut">
+                루트로부터 {lineage.depth}단계 · 파생 {lineage.children.length}개
+              </span>
+              <button className="btn gho" onClick={() => setLineage(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="lin-body">
+              <div className="lin-chain">
+                {[...lineage.ancestors].reverse().map((a) => (
+                  <LineageNode key={a.creation_id} c={a} nameOf={nameOf} onOpen={openLineage} />
+                ))}
+                <LineageNode c={lineage.creation} nameOf={nameOf} current />
+              </div>
+              {lineage.children.length > 0 && (
+                <>
+                  <div className="lin-grp">↳ 파생(리믹스) {lineage.children.length}</div>
+                  <div className="lin-children">
+                    {lineage.children.map((ch) => (
+                      <LineageNode key={ch.creation_id} c={ch} nameOf={nameOf} onOpen={openLineage} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
+  );
+}
+
+/** A single node in the lineage tree. */
+function LineageNode({
+  c,
+  nameOf,
+  current,
+  onOpen,
+}: {
+  c: Creation;
+  nameOf: (uid: string) => string;
+  current?: boolean;
+  onOpen?: (id: string) => void;
+}) {
+  return (
+    <div className={`lin-node ${current ? "cur" : ""}`}>
+      <span className="lin-ico">{current ? "⭐" : c.parent_creation_id ? "↳" : "◉"}</span>
+      <div className="lin-info">
+        <div className="lin-title">
+          [{c.action}] {c.creation_id.slice(0, 14)}…
+          {current && <span className="pill p">현재</span>}
+        </div>
+        <div className="lin-sub">
+          {nameOf(c.creator_id)} · 🧩 {c.plugin_id} · {c.status}
+        </div>
+      </div>
+      {!current && onOpen && (
+        <button className="btn gho" onClick={() => onOpen(c.creation_id)}>
+          보기
+        </button>
+      )}
+    </div>
   );
 }
 

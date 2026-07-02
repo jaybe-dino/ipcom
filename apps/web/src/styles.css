@@ -301,6 +301,22 @@ body {
   background: var(--panel);
 }
 .plugbar { display: flex; gap: 7px; margin-bottom: 9px; flex-wrap: wrap; }
+/* Lineage (버전/계보) tree modal */
+.lin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 50; }
+.lin-modal { width: min(560px, 92vw); max-height: 82vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.lin-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.lin-head .mut { color: var(--mut); font-size: 12px; flex: 1; }
+.lin-body { padding: 14px 16px; }
+.lin-grp { font-size: 11px; color: var(--mut); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin: 14px 0 8px; }
+.lin-chain { display: flex; flex-direction: column; gap: 6px; }
+.lin-chain .lin-node:not(:last-child)::after { content: "│"; position: absolute; left: 17px; bottom: -8px; color: var(--line); font-size: 12px; }
+.lin-children { display: flex; flex-direction: column; gap: 6px; }
+.lin-node { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); }
+.lin-node.cur { border-color: var(--acc); background: rgba(124,92,255,.08); }
+.lin-ico { font-size: 14px; width: 16px; text-align: center; }
+.lin-info { flex: 1; min-width: 0; }
+.lin-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.lin-sub { font-size: 11.5px; color: var(--mut); margin-top: 2px; }
 .modelrow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
 .modelrow select {
   flex: 1; background: var(--panel); color: var(--txt); border: 1px solid var(--line);
