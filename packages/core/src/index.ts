@@ -55,6 +55,9 @@ export { sha256Hex } from "./ledger/sha256.js";
 export {
   buildLicenseManifest,
   verifyManifest,
+  isLicenseExpired,
+  addDays,
+  LICENSE_TERM_DAYS,
   type LicenseManifest,
   type ManifestInput,
 } from "./provenance/manifest.js";

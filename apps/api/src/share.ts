@@ -1,4 +1,4 @@
-import type { Creation, LicenseManifest } from "@remix-hub/core";
+import { isLicenseExpired, type Creation, type LicenseManifest } from "@remix-hub/core";
 
 /**
  * Server-rendered public share page + OG card for an exported work. Rendering
@@ -59,13 +59,18 @@ export function renderShareCard(manifest: LicenseManifest, creation: Creation | 
 export function renderSharePage(
   manifest: LicenseManifest,
   creation: Creation | null,
-  opts: { baseUrl: string; exportId: string; appUrl: string },
+  opts: { baseUrl: string; exportId: string; appUrl: string; now?: string },
 ): string {
   const title = shareTitle(manifest, creation);
   const desc = shareDescription(manifest);
   const shareUrl = `${opts.baseUrl}/share/${opts.exportId}`;
   const cardUrl = `${shareUrl}/card.svg`;
   const action = ACTION_LABEL[creation?.action ?? ""] ?? "작품";
+  const now = opts.now ?? new Date().toISOString();
+  const expired = isLicenseExpired(manifest, now);
+  const termLine = !manifest.valid_until
+    ? "라이선스 유효기간: 무기한"
+    : `라이선스 유효기간: ${esc(manifest.valid_until.slice(0, 10))}${expired ? " · ⛔ 만료됨" : " 까지"}`;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -109,7 +114,9 @@ export function renderSharePage(
       <h1>${esc(manifest.ip_name)} 컨셉 ${esc(action)}</h1>
       <div class="scope">${esc(manifest.license.scope)} · ${esc(manifest.license.terms)}</div>
       <span class="label">🤖 ${esc(manifest.ai_label.text)}</span>
+      ${expired ? '<span class="label" style="background:rgba(255,93,108,.15);color:#ff5d6c">⛔ 라이선스 만료</span>' : ""}
       <div class="row" id="share"></div>
+      <div class="meta">${termLine}</div>
       <div class="meta">라이선스 해시: ${esc(manifest.manifest_hash)}</div>
       <div class="foot"><a href="${esc(opts.appUrl)}">REMIX HUB에서 더 보기 →</a></div>
     </div>

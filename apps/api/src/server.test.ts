@@ -239,6 +239,13 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     expect(lic.signing_key_id).toBeTruthy();
 
     const verify = await app.inject({ method: "GET", url: `/exports/${exportId}/verify` });
-    expect(verify.json()).toMatchObject({ manifest_ok: true, signature_ok: true });
+    // Personal export → perpetual license → valid & unexpired.
+    expect(verify.json()).toMatchObject({
+      manifest_ok: true,
+      signature_ok: true,
+      valid_until: null,
+      expired: false,
+      valid: true,
+    });
   });
 });

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
-import { revisePolicy, verifyManifest, type CreativeAction, type UseType } from "@remix-hub/core";
+import { isLicenseExpired, revisePolicy, verifyManifest, type CreativeAction, type UseType } from "@remix-hub/core";
 import { verifyManifestSignature } from "./provenance/sign.js";
 import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
@@ -385,7 +385,16 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const signature_ok = manifest.provenance_signature
       ? verifyManifestSignature(manifest.manifest_hash, manifest.provenance_signature)
       : false;
-    return { manifest_ok, signature_ok, signing_key_id: manifest.signing_key_id ?? null };
+    const expired = isLicenseExpired(manifest, new Date().toISOString());
+    return {
+      manifest_ok,
+      signature_ok,
+      signing_key_id: manifest.signing_key_id ?? null,
+      valid_until: manifest.valid_until,
+      expired,
+      // A license is currently honorable only if sealed, signed, and unexpired.
+      valid: manifest_ok && signature_ok && !expired,
+    };
   });
 
   // Asset access: export-scoped assets (license proofs) are public; internal
