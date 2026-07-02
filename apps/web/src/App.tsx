@@ -13,35 +13,18 @@ import { SpaceScreen } from "./screens/SpaceScreen.js";
 
 export type ScreenId = "home" | "space" | "dm" | "gate" | "consent" | "settle" | "market";
 
-const NAV_GROUPS: { title: string; items: { id: ScreenId; label: string; icon: string }[] }[] = [
-  {
-    title: "커뮤니티",
-    items: [
-      { id: "home", label: "홈 · 스페이스 탐색", icon: "🏠" },
-      { id: "space", label: "커뮤니티 채팅", icon: "💬" },
-      { id: "dm", label: "다이렉트 메시지", icon: "✉️" },
-      { id: "market", label: "마켓플레이스", icon: "🛍️" },
-    ],
-  },
-  {
-    title: "크리에이터 스튜디오",
-    items: [
-      { id: "gate", label: "외부 반출 게이트", icon: "🚪" },
-      { id: "consent", label: "IP 동의 매트릭스", icon: "🎛️" },
-      { id: "settle", label: "정산 대시보드", icon: "📊" },
-    ],
-  },
+// Single top-level nav. Divider (after 마켓) visually separates community from
+// the creator-studio tools without becoming a second sidebar.
+const NAV: ({ id: ScreenId; label: string; icon: string } | { divider: true })[] = [
+  { id: "home", label: "홈", icon: "🏠" },
+  { id: "space", label: "커뮤니티", icon: "💬" },
+  { id: "dm", label: "DM", icon: "✉️" },
+  { id: "market", label: "마켓", icon: "🛍️" },
+  { divider: true },
+  { id: "gate", label: "반출", icon: "🚪" },
+  { id: "consent", label: "동의", icon: "🎛️" },
+  { id: "settle", label: "정산", icon: "📊" },
 ];
-
-const TITLES: Record<ScreenId, string> = {
-  home: "홈",
-  space: "커뮤니티 채팅",
-  dm: "다이렉트 메시지",
-  market: "마켓플레이스",
-  gate: "외부 반출 게이트",
-  consent: "IP 동의 매트릭스",
-  settle: "정산 대시보드",
-};
 
 const SEED_SPACE = "space_artist_g";
 
@@ -58,11 +41,9 @@ export function App() {
   const [exportCreationId, setExportCreationId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string>(SEED_SPACE);
   const [dmChannel, setDmChannel] = useState<string | null>(null);
-  const [mobileNav, setMobileNav] = useState(false);
 
   const go = (id: ScreenId) => {
     setScreen(id);
-    setMobileNav(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -71,61 +52,47 @@ export function App() {
   const initial = (user.display_name?.[0] ?? "?").toUpperCase();
 
   return (
-    <div className={`shell ${mobileNav ? "nav-open" : ""}`}>
-      <aside className="sidebar">
-        <div className="sb-brand">
+    <div className="shell">
+      {/* Single top-level navigation bar */}
+      <header className="topbar">
+        <div className="brand">
           <div className="logo">R</div>
-          <div className="sb-brand-txt">
+          <div className="brand-txt">
             <b>REMIX HUB</b>
             <span>IP × AI 커뮤니티</span>
           </div>
         </div>
 
-        <nav className="sb-nav">
-          {NAV_GROUPS.map((g) => (
-            <div className="sb-group" key={g.title}>
-              <div className="sb-title">{g.title}</div>
-              {g.items.map((it) => (
-                <button
-                  key={it.id}
-                  className={`sb-link ${screen === it.id ? "on" : ""}`}
-                  onClick={() => go(it.id)}
-                >
-                  <span className="sb-ic">{it.icon}</span>
-                  <span>{it.label}</span>
-                </button>
-              ))}
-            </div>
-          ))}
+        <nav className="topnav">
+          {NAV.map((it, i) =>
+            "divider" in it ? (
+              <span className="topnav-div" key={`d${i}`} />
+            ) : (
+              <button
+                key={it.id}
+                className={`topnav-link ${screen === it.id ? "on" : ""}`}
+                onClick={() => go(it.id)}
+              >
+                <span className="ic">{it.icon}</span>
+                <span className="lbl">{it.label}</span>
+              </button>
+            ),
+          )}
         </nav>
 
-        <div className="sb-foot">
-          <div className="sb-user">
+        <div className="top-actions">
+          <NotificationBell />
+          <div className="top-user" title={ROLE_LABEL[user.role] ?? user.role}>
             <div className="sb-av">{initial}</div>
-            <div className="sb-user-txt">
-              <b>{user.display_name ?? user.user_id}</b>
-              <span>{ROLE_LABEL[user.role] ?? user.role}</span>
-            </div>
+            <span className="top-user-name">{user.display_name ?? user.user_id}</span>
           </div>
-          <button className="btn gho sb-logout" onClick={() => session.clear()}>
+          <button className="btn gho" onClick={() => session.clear()}>
             로그아웃
           </button>
         </div>
-      </aside>
-
-      {mobileNav && <div className="nav-scrim" onClick={() => setMobileNav(false)} />}
+      </header>
 
       <main className="app-main">
-        <header className="app-top">
-          <button className="nav-toggle" onClick={() => setMobileNav((v) => !v)} aria-label="메뉴">
-            ☰
-          </button>
-          <div className="app-title">{TITLES[screen]}</div>
-          <div className="app-actions">
-            <NotificationBell />
-          </div>
-        </header>
-
         <div className="app-content">
           {screen === "home" && (
             <HomeScreen

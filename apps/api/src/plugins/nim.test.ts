@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { PluginGateway } from "./gateway.js";
+import { HiggsfieldPlugin } from "./higgsfield.js";
 import { NimPlugin, type NimConfig } from "./nim.js";
 import type { GenRequest } from "./types.js";
 
@@ -69,5 +70,45 @@ describe("NimPlugin", () => {
   it("only advertises capabilities for configured models", () => {
     const nim = new NimPlugin(cfg({ image: { model: "sdxl" }, music: { model: "m" } }));
     expect(nim.capabilities.sort()).toEqual(["image", "music"]);
+  });
+});
+
+describe("HiggsfieldPlugin", () => {
+  const hfCfg = {
+    apiKey: "hf-key",
+    baseUrl: "https://hf.test/v1",
+    statusPath: "/jobs/{id}",
+    capabilities: ["image", "video", "music", "voice"] as const,
+  };
+
+  it("parses a synchronous asset URL and authorizes the request", async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({ url: "https://cdn.hf/out.png" }));
+    const hf = new HiggsfieldPlugin({ ...hfCfg, capabilities: [...hfCfg.capabilities] }, fetchFn as unknown as typeof fetch);
+    const job = await hf.submit(reqFor("image"));
+    const result = await hf.poll(job);
+    expect(result.status).toBe("succeeded");
+    expect(result.output).toBe("https://cdn.hf/out.png");
+    expect((fetchFn.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ Authorization: "Bearer hf-key" });
+  });
+
+  it("handles an async job with status polling", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ status: "PROCESSING", id: "j1" }))
+      .mockResolvedValueOnce(jsonResponse({ status: "COMPLETED", url: "https://cdn.hf/clip.mp4" }));
+    const hf = new HiggsfieldPlugin({ ...hfCfg, capabilities: [...hfCfg.capabilities] }, fetchFn as unknown as typeof fetch);
+    const job = await hf.submit(reqFor("video_recast"));
+    expect(job.status).toBe("running");
+    const result = await hf.poll(job);
+    expect(result.output).toBe("https://cdn.hf/clip.mp4");
+    expect(fetchFn.mock.calls[1]![0]).toBe("https://hf.test/v1/jobs/j1");
+  });
+
+  it("gateway prefers Higgsfield when configured and falls back to stub on failure", async () => {
+    const failing = vi.fn(async () => jsonResponse({ error: "down" }, false, 500));
+    const hf = new HiggsfieldPlugin({ ...hfCfg, capabilities: [...hfCfg.capabilities] }, failing as unknown as typeof fetch);
+    const gw = new PluginGateway([hf], { sleep: async () => {} });
+    const out = await gw.generate(reqFor("image"));
+    expect(out.plugin_id).toBe("stub.local");
   });
 });

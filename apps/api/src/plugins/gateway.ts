@@ -1,4 +1,5 @@
 import type { CreativeAction } from "@remix-hub/core";
+import { HiggsfieldPlugin, higgsfieldConfigFromEnv } from "./higgsfield.js";
 import { NimPlugin, nimConfigFromEnv } from "./nim.js";
 import { StubPlugin } from "./stub.js";
 import { ACTION_CAPABILITY, type GenRequest, type JobResult, type RemixPlugin } from "./types.js";
@@ -35,6 +36,8 @@ export class PluginGateway {
   /** Build the default gateway: NVIDIA NIM (if NVIDIA_API_KEY set) → stub failover. */
   static fromEnv(env: NodeJS.ProcessEnv = process.env): PluginGateway {
     const plugins: RemixPlugin[] = [];
+    const hf = higgsfieldConfigFromEnv(env);
+    if (hf) plugins.push(new HiggsfieldPlugin(hf));
     const nim = nimConfigFromEnv(env);
     if (nim) plugins.push(new NimPlugin(nim));
     return new PluginGateway(plugins);
