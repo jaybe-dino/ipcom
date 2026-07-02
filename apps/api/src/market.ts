@@ -9,6 +9,7 @@ import {
 } from "@remix-hub/core";
 import type { AssetStore } from "./assets/store.js";
 import { newId, now } from "./ids.js";
+import { MockPaymentProvider, type PaymentProvider } from "./payments/provider.js";
 import { signManifestHash } from "./provenance/sign.js";
 import type { Repo } from "./repo/types.js";
 
@@ -23,6 +24,7 @@ export class MarketService {
   constructor(
     private readonly repo: Repo,
     private readonly assets: AssetStore,
+    private readonly payments: PaymentProvider = new MockPaymentProvider(),
   ) {}
 
   async catalog(): Promise<{ listings: Listing[]; templates: PromptTemplate[] }> {
@@ -96,6 +98,15 @@ export class MarketService {
     const listing = await this.repo.getListing(listingId);
     if (!listing || !listing.active) return { ok: false, status: 404, reason: "listing_not_found" };
     if (listing.seller_id === buyerId) return { ok: false, status: 400, reason: "cannot_buy_own_listing" };
+
+    // Charge the buyer before issuing the license (mock in dev; Stripe if keyed).
+    const charge = await this.payments.charge({
+      amount: listing.price,
+      currency: listing.currency,
+      reference: listing.listing_id,
+      description: `REMIX HUB ${listing.kind} ${listing.title}`,
+    });
+    if (!charge.ok) return { ok: false, status: 402, reason: "payment_failed" };
 
     // Compute the split: creation → IP sale split, template → flat take rate.
     let distribution;

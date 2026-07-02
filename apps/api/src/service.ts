@@ -12,6 +12,7 @@ import {
 } from "@remix-hub/core";
 import { MemoryAssetStore, type AssetStore } from "./assets/store.js";
 import { KeywordModerator, type Moderator } from "./moderation/moderator.js";
+import { MockPaymentProvider, type PaymentProvider } from "./payments/provider.js";
 import { signManifestHash } from "./provenance/sign.js";
 import { newId, now } from "./ids.js";
 import { PluginGateway } from "./plugins/gateway.js";
@@ -30,6 +31,7 @@ export class RemixService {
     private readonly bus?: EventBus,
     private readonly assets: AssetStore = new MemoryAssetStore(),
     private readonly moderator: Moderator = new KeywordModerator(),
+    private readonly payments: PaymentProvider = new MockPaymentProvider(),
   ) {}
 
   /** PRD §2.2 + G1: submit a generation job, then dispatch to the Plugin Gateway. */
@@ -432,6 +434,15 @@ export class RemixService {
       return { ok: false, status: 409, reason: "export_not_approved" };
     }
 
+    // Charge the fee before distributing (PRD §4.6). Mock in dev; Stripe if keyed.
+    const charge = await this.payments.charge({
+      amount: exportReq.fee_amount,
+      currency: "KRW",
+      reference: exportReq.export_id,
+      description: `REMIX HUB export ${exportReq.use_type}`,
+    });
+    if (!charge.ok) return { ok: false, status: 402, reason: "payment_failed" };
+
     const distribution = distribute(exportReq.fee_amount, exportReq.split_snapshot);
     const creation = await this.repo.getCreation(exportReq.creation_id);
     const ip = creation ? await this.repo.getIp(creation.ip_id) : null;
@@ -476,6 +487,8 @@ export class RemixService {
         manifest_hash: manifest.manifest_hash,
         fee_amount: exportReq.fee_amount,
         distribution,
+        payment_id: charge.payment_id,
+        payment_provider: this.payments.id,
       },
     });
 
