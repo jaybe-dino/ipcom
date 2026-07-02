@@ -9,7 +9,7 @@ import Fastify from "fastify";
 import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
 import type { LicenseManifest } from "@remix-hub/core";
-import { MemoryAssetStore } from "./assets/store.js";
+import { assetStoreFromEnv } from "./assets/store.js";
 import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
 import { registerObservability } from "./http/observability.js";
@@ -35,7 +35,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const bus = new EventBus();
   const presence = new PresenceTracker();
   const gateway = PluginGateway.fromEnv();
-  const assets = new MemoryAssetStore();
+  const assets = assetStoreFromEnv();
   const moderator = moderatorFromEnv();
   const service = new RemixService(repo, gateway, bus, assets, moderator);
   const market = new MarketService(repo, assets);
