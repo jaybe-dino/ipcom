@@ -5,4 +5,5 @@ export * from "./space.js";
 export * from "./creation.js";
 export * from "./ledger.js";
 export * from "./market.js";
+export * from "./moderation.js";
 export * from "./notification.js";

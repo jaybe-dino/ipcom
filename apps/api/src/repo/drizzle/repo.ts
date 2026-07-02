@@ -15,6 +15,8 @@ import {
   type Post,
   type PromptTemplate,
   type Reaction,
+  type Report,
+  type ReportStatus,
   type Space,
   type User,
 } from "@remix-hub/core";
@@ -37,6 +39,7 @@ import {
   posts,
   promptTemplates,
   reactions,
+  reports,
   schema,
   spaces,
   users,
@@ -119,6 +122,11 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       notification_id text PRIMARY KEY, user_id text NOT NULL, type text NOT NULL,
       actor_id text NOT NULL, channel_id text NOT NULL, post_id text NOT NULL,
       text text NOT NULL, read boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS reports (
+      report_id text PRIMARY KEY, target_type text NOT NULL, target_id text NOT NULL,
+      reporter_id text NOT NULL, reason text NOT NULL, status text NOT NULL,
+      created_at timestamptz NOT NULL, resolved_at timestamptz, resolver_id text, note text
     )`,
     // Additive columns for existing deployments (idempotent).
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
@@ -517,5 +525,20 @@ export class DrizzleRepo implements Repo {
       .insert(orders)
       .values(order)
       .onConflictDoUpdate({ target: orders.order_id, set: order });
+  }
+
+  async saveReport(report: Report) {
+    await this.db
+      .insert(reports)
+      .values(report)
+      .onConflictDoUpdate({ target: reports.report_id, set: report });
+  }
+  async getReport(id: string): Promise<Report | null> {
+    const r = await this.db.select().from(reports).where(eq(reports.report_id, id)).limit(1);
+    return r[0] ?? null;
+  }
+  async listReports(status?: ReportStatus): Promise<Report[]> {
+    if (status) return this.db.select().from(reports).where(eq(reports.status, status));
+    return this.db.select().from(reports);
   }
 }

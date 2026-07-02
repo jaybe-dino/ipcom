@@ -13,6 +13,8 @@ import type {
   Post,
   PromptTemplate,
   Reaction,
+  Report,
+  ReportStatus,
   Space,
   User,
 } from "@remix-hub/core";
@@ -106,4 +108,9 @@ export interface Repo {
   saveTemplate(template: PromptTemplate): Promise<void>;
   listOrders(): Promise<Order[]>;
   saveOrder(order: Order): Promise<void>;
+
+  // Moderation reports
+  saveReport(report: Report): Promise<void>;
+  getReport(id: string): Promise<Report | null>;
+  listReports(status?: ReportStatus): Promise<Report[]>;
 }

@@ -11,6 +11,8 @@ import type { LicenseManifest } from "@remix-hub/core";
 import { MemoryAssetStore } from "./assets/store.js";
 import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
+import { moderatorFromEnv } from "./moderation/moderator.js";
+import { ModerationService } from "./moderation/service.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import { renderShareCard, renderSharePage } from "./share.js";
 import { EventBus } from "./realtime/bus.js";
@@ -31,9 +33,11 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const presence = new PresenceTracker();
   const gateway = PluginGateway.fromEnv();
   const assets = new MemoryAssetStore();
-  const service = new RemixService(repo, gateway, bus, assets);
+  const moderator = moderatorFromEnv();
+  const service = new RemixService(repo, gateway, bus, assets, moderator);
   const market = new MarketService(repo, assets);
   const community = new CommunityService(repo);
+  const moderation = new ModerationService(repo);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
@@ -442,6 +446,45 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     if (!data) return reply.code(404).send("not found");
     return reply.type("image/svg+xml").send(renderShareCard(data.manifest, data.creation));
   });
+
+  // --- Moderation reports (PRD §4.4) ---
+  app.post("/reports", auth(), async (req, reply) => {
+    const body = req.body as { target_type: "creation" | "post" | "space"; target_id: string; reason: string };
+    const result = await moderation.report({
+      reporterId: uid(req),
+      targetType: body.target_type,
+      targetId: body.target_id,
+      reason: body.reason,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ report: result.value });
+  });
+
+  app.get(
+    "/admin/reports",
+    { preHandler: [app.authenticate, app.requireRole("ADMIN", "OWNER")] },
+    async (req) => {
+      const { status } = req.query as { status?: "open" | "actioned" | "dismissed" };
+      return { reports: await moderation.list(status) };
+    },
+  );
+
+  app.post(
+    "/admin/reports/:id/resolve",
+    { preHandler: [app.authenticate, app.requireRole("ADMIN", "OWNER")] },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const body = req.body as { action: "actioned" | "dismissed"; note?: string };
+      const result = await moderation.resolve({
+        reportId: id,
+        resolverId: uid(req),
+        action: body.action,
+        note: body.note,
+      });
+      if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+      return { report: result.value };
+    },
+  );
 
   // --- License Ledger ---
   app.get("/ledger", async () => ({

@@ -3,7 +3,6 @@ import {
   canGenerate,
   distribute,
   exportDecision,
-  screenHardLimits,
   type Creation,
   type CreativeAction,
   type ExportRequest,
@@ -12,6 +11,7 @@ import {
   type UseType,
 } from "@remix-hub/core";
 import { MemoryAssetStore, type AssetStore } from "./assets/store.js";
+import { KeywordModerator, type Moderator } from "./moderation/moderator.js";
 import { newId, now } from "./ids.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import type { EventBus } from "./realtime/bus.js";
@@ -28,6 +28,7 @@ export class RemixService {
     private readonly gateway: PluginGateway = PluginGateway.fromEnv(),
     private readonly bus?: EventBus,
     private readonly assets: AssetStore = new MemoryAssetStore(),
+    private readonly moderator: Moderator = new KeywordModerator(),
   ) {}
 
   /** PRD §2.2 + G1: submit a generation job, then dispatch to the Plugin Gateway. */
@@ -45,7 +46,7 @@ export class RemixService {
     const ctx = await this.repo.spaceWithIp(params.spaceId);
     if (!ctx) return { ok: false, status: 404, reason: "space_not_found" };
 
-    const moderation = screenHardLimits({
+    const moderation = await this.moderator.screen({
       prompt: params.prompt,
       source_assets: params.sourceAssets,
       scores: params.moderationScores,

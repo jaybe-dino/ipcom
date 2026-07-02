@@ -13,6 +13,8 @@ import {
   type Post,
   type PromptTemplate,
   type Reaction,
+  type Report,
+  type ReportStatus,
   type Space,
   type User,
 } from "@remix-hub/core";
@@ -34,6 +36,7 @@ export class MemoryRepo implements Repo {
   private listings = new Map<string, Listing>();
   private templates = new Map<string, PromptTemplate>();
   private orders = new Map<string, Order>();
+  private reports = new Map<string, Report>();
   /** space_id → set of member user_ids. */
   private members = new Map<string, Set<string>>();
   /** key `${post_id}|${user_id}|${emoji}` → Reaction. */
@@ -276,5 +279,16 @@ export class MemoryRepo implements Repo {
   }
   async saveOrder(order: Order) {
     this.orders.set(order.order_id, order);
+  }
+
+  async saveReport(report: Report) {
+    this.reports.set(report.report_id, report);
+  }
+  async getReport(id: string) {
+    return this.reports.get(id) ?? null;
+  }
+  async listReports(status?: ReportStatus) {
+    const all = [...this.reports.values()];
+    return status ? all.filter((r) => r.status === status) : all;
   }
 }

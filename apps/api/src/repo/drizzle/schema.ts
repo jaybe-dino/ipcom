@@ -186,6 +186,19 @@ export const notifications = pgTable("notifications", {
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
 });
 
+export const reports = pgTable("reports", {
+  report_id: text("report_id").primaryKey(),
+  target_type: text("target_type").$type<"creation" | "post" | "space">().notNull(),
+  target_id: text("target_id").notNull(),
+  reporter_id: text("reporter_id").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").$type<"open" | "actioned" | "dismissed">().notNull(),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+  resolved_at: timestamp("resolved_at", { mode: "string", withTimezone: true }),
+  resolver_id: text("resolver_id"),
+  note: text("note"),
+});
+
 export const schema = {
   users,
   ips,
@@ -202,4 +215,5 @@ export const schema = {
   reactions,
   dmThreads,
   notifications,
+  reports,
 };
