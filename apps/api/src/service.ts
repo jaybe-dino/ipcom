@@ -61,26 +61,21 @@ export class RemixService {
       return { ok: false, status: 403, reason: verdict.reason ?? "denied" };
     }
 
-    // Dispatch to the Plugin Gateway (NVIDIA NIM → stub failover). The gate has
-    // already passed, so the engine only ever runs on permitted requests.
-    const job = await this.gateway.generate({
-      prompt: params.prompt,
-      source_assets: params.sourceAssets ?? [],
-      ip_id: ctx.ip.ip_id,
-      action: params.action,
-    });
-
+    // G1 passed. Create the record in "generating" state and return immediately,
+    // so a "생성 중…" card appears instantly. The Plugin Gateway (Higgsfield/NIM
+    // → stub) runs in the background; on completion we fill the asset and
+    // broadcast creation.updated so every viewer sees it resolve live.
     const creation: Creation = {
       creation_id: newId("cr"),
       ip_id: ctx.ip.ip_id,
       creator_id: params.creatorId,
-      plugin_id: params.pluginId ?? job.plugin_id,
+      plugin_id: params.pluginId ?? `${params.action}.pending`,
       action: params.action,
       source_assets: params.sourceAssets ?? [],
-      output_asset: job.output,
+      output_asset: null,
       moderation,
-      provenance: job.provenance,
-      status: "generated",
+      provenance: { source_assets: params.sourceAssets ?? [], model_info: { plugin_id: "pending" }, prompt: params.prompt },
+      status: "generating",
       created_at: now(),
     };
     await this.repo.saveCreation(creation);
@@ -88,10 +83,9 @@ export class RemixService {
     await this.repo.appendLedger({
       event_type: "create",
       actor: params.creatorId,
-      payload: { result: "generated", creation_id: creation.creation_id, ip_id: ctx.ip.ip_id, action: params.action },
+      payload: { result: "submitted", creation_id: creation.creation_id, ip_id: ctx.ip.ip_id, action: params.action },
     });
 
-    // Post the creation into the channel + broadcast to live subscribers.
     if (params.channelId) {
       const post = {
         post_id: newId("post"),
@@ -106,7 +100,60 @@ export class RemixService {
       this.bus?.publish({ type: "post.created", channel_id: params.channelId, post, creation, author });
     }
 
+    // Fire-and-forget the actual generation.
+    void this.completeGeneration(creation, {
+      prompt: params.prompt,
+      sourceAssets: params.sourceAssets ?? [],
+      ipId: ctx.ip.ip_id,
+      action: params.action,
+      pluginId: params.pluginId,
+      channelId: params.channelId,
+      actorId: params.creatorId,
+    });
+
     return { ok: true, creation };
+  }
+
+  /** Background: run the plugin, fill the asset, and broadcast the result. */
+  private async completeGeneration(creation: Creation, p: {
+    prompt: string;
+    sourceAssets: string[];
+    ipId: string;
+    action: CreativeAction;
+    pluginId?: string;
+    channelId?: string;
+    actorId: string;
+  }): Promise<void> {
+    const fresh = (await this.repo.getCreation(creation.creation_id)) ?? creation;
+    try {
+      const job = await this.gateway.generate({
+        prompt: p.prompt,
+        source_assets: p.sourceAssets,
+        ip_id: p.ipId,
+        action: p.action,
+      });
+      fresh.output_asset = job.output;
+      fresh.provenance = job.provenance;
+      fresh.plugin_id = p.pluginId ?? job.plugin_id;
+      fresh.status = "generated";
+      await this.repo.saveCreation(fresh);
+      await this.repo.appendLedger({
+        event_type: "create",
+        actor: p.actorId,
+        payload: { result: "generated", creation_id: fresh.creation_id, ip_id: p.ipId, action: p.action },
+      });
+    } catch (e) {
+      fresh.status = "failed";
+      await this.repo.saveCreation(fresh);
+      await this.repo.appendLedger({
+        event_type: "create",
+        actor: p.actorId,
+        payload: { result: "failed", creation_id: fresh.creation_id, error: (e as Error).message },
+      });
+    }
+    if (p.channelId) {
+      this.bus?.publish({ type: "creation.updated", channel_id: p.channelId, creation: fresh });
+    }
   }
 
   /** Community chat: send a plain text message (optionally a reply) and broadcast. */

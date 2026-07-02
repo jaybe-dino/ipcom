@@ -4,7 +4,9 @@ import type { CreativeAction, UseType } from "./consent.js";
 /** PRD §3.4 — Creation (생성물) */
 
 export type CreationStatus =
+  | "generating"
   | "generated"
+  | "failed"
   | "shared"
   | "export_requested"
   | "exported"

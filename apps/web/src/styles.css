@@ -600,3 +600,8 @@ input, select { transition: border-color 0.15s, box-shadow 0.15s; }
 .hero .hero-in { position: relative; padding: 22px; color: #fff; text-shadow: 0 2px 12px rgba(40, 20, 90, 0.55); }
 .hero .hero-in h2 { font-size: 26px; font-weight: 900; letter-spacing: -0.6px; }
 .hero .hero-in p { font-size: 14px; margin-top: 4px; opacity: 0.96; }
+
+/* Async generation states */
+.thumb.generating { background: linear-gradient(135deg, #ece7fa, #e7f7f1); color: var(--acc); }
+.gen-spin { font-weight: 800; animation: genpulse 1.1s ease-in-out infinite; }
+@keyframes genpulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

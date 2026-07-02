@@ -160,6 +160,9 @@ export function SpaceScreen({
     return subscribeChannel(activeChannel, (e) => {
       if (e.type === "post.created") {
         upsert(e.post as Post, e.author as AuthorRef | undefined, e.creation as Creation | undefined);
+      } else if (e.type === "creation.updated") {
+        const cr = e.creation as Creation;
+        setCreations((c) => ({ ...c, [cr.creation_id]: cr }));
       } else if (e.type === "reaction.updated") {
         applyReaction(e.post_id as string, e.emoji as string, e.added as boolean, e.user_id as string);
       } else if (e.type === "post.updated") {
@@ -372,18 +375,29 @@ export function SpaceScreen({
                     )}
                     {cr && (
                       <div className="card">
-                        <div className="thumb">
-                          [{cr.action} 생성]
-                          <span className="wm">🤖 AI 생성 · REMIX HUB</span>
+                        <div className={`thumb ${cr.status === "generating" ? "generating" : ""}`}>
+                          {cr.status === "generating" ? (
+                            <span className="gen-spin">✨ 생성 중…</span>
+                          ) : cr.status === "failed" ? (
+                            <span>⚠️ 생성 실패</span>
+                          ) : (
+                            <>[{cr.action} 생성]<span className="wm">🤖 AI 생성 · REMIX HUB</span></>
+                          )}
                         </div>
                         <div className="cbody">
                           <div className="cmeta">
                             <span>🧩 {cr.plugin_id}</span>
-                            <span className="pill g">{cr.status}</span>
+                            <span className={`pill ${cr.status === "generating" ? "w" : cr.status === "failed" ? "d" : "g"}`}>
+                              {cr.status}
+                            </span>
                           </div>
                         </div>
                         <div className="cact">
-                          <button className="btn pri" onClick={() => onExport(cr.creation_id)}>
+                          <button
+                            className="btn pri"
+                            disabled={cr.status === "generating" || cr.status === "failed"}
+                            onClick={() => onExport(cr.creation_id)}
+                          >
                             외부 반출 →
                           </button>
                         </div>

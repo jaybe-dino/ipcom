@@ -61,8 +61,14 @@ describe("DrizzleRepo (PGlite) — persistence + pipeline", () => {
       payload: { action: "image", prompt: "neon rain" },
     });
     const creationId = gen.json().creation.creation_id;
-    // Reloaded from Postgres, not memory.
-    expect((await repo.getCreation(creationId))?.status).toBe("generated");
+    // Generation is async: starts "generating", resolves to "generated".
+    expect(gen.json().creation.status).toBe("generating");
+    let status = "generating";
+    for (let i = 0; i < 50 && status !== "generated"; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      status = (await repo.getCreation(creationId))?.status ?? "";
+    }
+    expect(status).toBe("generated");
 
     const exp = await app.inject({
       method: "POST",
