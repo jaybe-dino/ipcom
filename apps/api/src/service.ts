@@ -12,6 +12,7 @@ import {
 } from "@remix-hub/core";
 import { MemoryAssetStore, type AssetStore } from "./assets/store.js";
 import { KeywordModerator, type Moderator } from "./moderation/moderator.js";
+import { NoopNotifier, type Notifier } from "./notify/notifier.js";
 import { MockPaymentProvider, type PaymentProvider } from "./payments/provider.js";
 import { signManifestHash } from "./provenance/sign.js";
 import { newId, now } from "./ids.js";
@@ -32,6 +33,7 @@ export class RemixService {
     private readonly assets: AssetStore = new MemoryAssetStore(),
     private readonly moderator: Moderator = new KeywordModerator(),
     private readonly payments: PaymentProvider = new MockPaymentProvider(),
+    private readonly notifier: Notifier = new NoopNotifier(),
   ) {}
 
   /** PRD §2.2 + G1: submit a generation job, then dispatch to the Plugin Gateway. */
@@ -264,6 +266,9 @@ export class RemixService {
     }
 
     recipients.delete(actor);
+    const actorUser = recipients.size ? await this.repo.getUser(actor) : null;
+    const actorName = actorUser?.display_name ?? actor;
+    const LABEL: Record<NotificationType, string> = { mention: "언급", reply: "답글", dm: "DM" };
     for (const [userId, type] of recipients) {
       await this.repo.addNotification({
         notification_id: newId("ntf"),
@@ -275,6 +280,15 @@ export class RemixService {
         text: text.slice(0, 80),
         read: false,
         created_at: now(),
+      });
+      // Fan out to email/push (best-effort; NoopNotifier unless configured).
+      void this.notifier.send({
+        kind: type,
+        to: userId,
+        actor,
+        title: `${actorName}님의 ${LABEL[type]}`,
+        body: text.slice(0, 140),
+        meta: { channel_id: post.channel_id, post_id: post.post_id },
       });
     }
   }
@@ -462,6 +476,18 @@ export class RemixService {
       payload: { export_id: exportReq.export_id, decision: exportReq.approval },
     });
 
+    // Alert the requester of the owner's decision (email/push if configured).
+    void this.notifier.send({
+      kind: "export_decision",
+      to: exportReq.requester_id,
+      actor: params.ownerId,
+      title: params.approve ? "외부 반출이 승인되었습니다" : "외부 반출이 거절되었습니다",
+      body: params.approve
+        ? `${ip.name} · ${exportReq.use_type} 반출이 승인되었습니다. 결제 후 라이선스가 발급됩니다.`
+        : `${ip.name} · ${exportReq.use_type} 반출이 거절되었습니다. 사유: ${exportReq.reject_reason}`,
+      meta: { export_id: exportReq.export_id, approval: exportReq.approval, fee_amount: exportReq.fee_amount },
+    });
+
     return { ok: true, export: exportReq };
   }
 
@@ -536,6 +562,22 @@ export class RemixService {
         payment_provider: this.payments.id,
       },
     });
+
+    // Notify the creator that a settlement occurred with their share.
+    if (creation) {
+      void this.notifier.send({
+        kind: "settlement",
+        to: creation.creator_id,
+        title: "정산이 완료되었습니다",
+        body: `${exportReq.use_type} 반출 정산 완료 · 창작자 배분 ${distribution.creator.toLocaleString("ko-KR")}원`,
+        meta: {
+          export_id: exportReq.export_id,
+          fee_amount: exportReq.fee_amount,
+          distribution,
+          payment_id: charge.payment_id,
+        },
+      });
+    }
 
     return { ok: true, export: exportReq, distribution };
   }

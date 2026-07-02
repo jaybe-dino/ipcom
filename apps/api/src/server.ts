@@ -16,6 +16,7 @@ import { MarketService } from "./market.js";
 import { registerObservability } from "./http/observability.js";
 import { moderatorFromEnv } from "./moderation/moderator.js";
 import { ModerationService } from "./moderation/service.js";
+import { notifierFromEnv } from "./notify/notifier.js";
 import { paymentProviderFromEnv } from "./payments/provider.js";
 import { SearchService } from "./search.js";
 import { PluginGateway } from "./plugins/gateway.js";
@@ -40,7 +41,8 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const assets = assetStoreFromEnv();
   const moderator = moderatorFromEnv();
   const payments = paymentProviderFromEnv();
-  const service = new RemixService(repo, gateway, bus, assets, moderator, payments);
+  const notifier = notifierFromEnv();
+  const service = new RemixService(repo, gateway, bus, assets, moderator, payments, notifier);
   const market = new MarketService(repo, assets, payments);
   const community = new CommunityService(repo);
   const moderation = new ModerationService(repo);
