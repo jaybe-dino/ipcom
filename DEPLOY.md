@@ -70,3 +70,21 @@ fly deploy               # https://<app>.fly.dev
 | `DATABASE_URL` | Postgres 연결 시 영속화 | 없음(인메모리) |
 | `NVIDIA_API_KEY` | NIM 실제 생성 연동 | 없음(스텁 failover) |
 | `WEB_DIST` | 웹 빌드 경로 override | `apps/web/dist` |
+| `ASSET_DIR` | 라이선스·에셋 파일 영속 경로(볼륨) | 없음(인메모리) |
+| `S3_BUCKET` 외 | 에셋을 S3/R2/MinIO에 저장(CDN 확장) | 없음 → `ASSET_DIR` → 메모리 |
+| `STRIPE_SECRET_KEY` | 정산 시 실제 결제 | 없음(mock 자동성공) |
+
+에셋 저장 우선순위: **S3(`S3_BUCKET`+키) → `ASSET_DIR`(볼륨) → 인메모리**. S3 어댑터는
+SDK 없이 SigV4 서명만으로 AWS S3·Cloudflare R2·MinIO·GCS 호환 엔드포인트를 지원합니다
+(비-AWS는 `S3_ENDPOINT` 지정). 전체 목록은 `.env.example` 참고.
+
+## E2E 스모크
+
+배포 전/후 핵심 여정(로그인 → 커뮤니티 채팅 → AI 생성)을 실제 브라우저로 검증:
+
+```bash
+pnpm test:e2e                                   # 앱을 띄워 자체 검증
+BASE_URL=https://your-deploy pnpm --filter @remix-hub/e2e smoke   # 배포본 검증
+```
+
+Chromium이 없으면 `SKIP`(exit 0)이라 CI를 깨지 않습니다. 자세한 내용은 `e2e/README.md`.
