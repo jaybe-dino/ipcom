@@ -12,6 +12,7 @@ import type { LicenseManifest } from "@remix-hub/core";
 import { MemoryAssetStore } from "./assets/store.js";
 import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
+import { registerObservability } from "./http/observability.js";
 import { moderatorFromEnv } from "./moderation/moderator.js";
 import { ModerationService } from "./moderation/service.js";
 import { SearchService } from "./search.js";
@@ -44,6 +45,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
+  registerObservability(app);
   registerAuth(app, repo);
   registerRealtime(app, bus, presence);
 
