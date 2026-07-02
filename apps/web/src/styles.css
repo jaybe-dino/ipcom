@@ -301,6 +301,13 @@ body {
   background: var(--panel);
 }
 .plugbar { display: flex; gap: 7px; margin-bottom: 9px; flex-wrap: wrap; }
+/* Audit console — report queue rows */
+.audit-report { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+.audit-report:first-of-type { border-top: none; }
+.ar-info { flex: 1; min-width: 0; }
+.ar-title { font-size: 13px; font-weight: 700; }
+.ar-act { display: flex; gap: 8px; flex-shrink: 0; }
+
 /* Lineage (버전/계보) tree modal */
 .lin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 50; }
 .lin-modal { width: min(560px, 92vw); max-height: 82vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }

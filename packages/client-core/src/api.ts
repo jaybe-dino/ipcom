@@ -11,6 +11,7 @@ import type {
   Post,
   PromptTemplate,
   ReactionSummary,
+  Report,
   SettlementSummary,
   Space,
   User,
@@ -240,6 +241,14 @@ export function createApi(cfg: ClientConfig) {
       req<{ entries: LedgerEntry[]; head_hash: string; integrity_ok: boolean }>("/ledger"),
     settlementSummary: (days = 14) =>
       req<SettlementSummary>(`/settlement/summary?days=${days}`),
+    // Admin: moderation report queue (ADMIN/OWNER only).
+    adminReports: (status?: Report["status"]) =>
+      req<{ reports: Report[] }>(`/admin/reports${status ? `?status=${status}` : ""}`),
+    resolveReport: (id: string, body: { action: "actioned" | "dismissed"; note?: string }) =>
+      req<{ report: Report }>(`/admin/reports/${id}/resolve`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
   };
 
   return api;

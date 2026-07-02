@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NotificationBell } from "./components/NotificationBell.js";
 import { session } from "./session.js";
 import { useSession } from "./useSession.js";
+import { AuditScreen } from "./screens/AuditScreen.js";
 import { AuthScreen } from "./screens/AuthScreen.js";
 import { ConsentScreen } from "./screens/ConsentScreen.js";
 import { DmScreen } from "./screens/DmScreen.js";
@@ -12,7 +13,7 @@ import { SearchScreen } from "./screens/SearchScreen.js";
 import { SettleScreen } from "./screens/SettleScreen.js";
 import { SpaceScreen } from "./screens/SpaceScreen.js";
 
-export type ScreenId = "home" | "space" | "dm" | "search" | "gate" | "consent" | "settle" | "market";
+export type ScreenId = "home" | "space" | "dm" | "search" | "gate" | "consent" | "settle" | "market" | "audit";
 
 // Single top-level nav. Divider (after 마켓) visually separates community from
 // the creator-studio tools without becoming a second sidebar.
@@ -66,7 +67,12 @@ export function App() {
         </div>
 
         <nav className="topnav">
-          {NAV.map((it, i) =>
+          {[
+            ...NAV,
+            ...(user.role === "ADMIN" || user.role === "OWNER"
+              ? [{ id: "audit" as ScreenId, label: "감사", icon: "🛡️" }]
+              : []),
+          ].map((it, i) =>
             "divider" in it ? (
               <span className="topnav-div" key={`d${i}`} />
             ) : (
@@ -132,6 +138,7 @@ export function App() {
           {screen === "consent" && <ConsentScreen />}
           {screen === "settle" && <SettleScreen />}
           {screen === "market" && <MarketScreen />}
+          {screen === "audit" && (user.role === "ADMIN" || user.role === "OWNER") && <AuditScreen />}
         </div>
       </main>
     </div>
