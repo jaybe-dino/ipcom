@@ -3,9 +3,11 @@ import {
   canGenerate,
   distribute,
   exportDecision,
+  isLicenseExpired,
   type Creation,
   type CreativeAction,
   type ExportRequest,
+  type LicenseManifest,
   type NotificationType,
   type Post,
   type UseType,
@@ -582,5 +584,49 @@ export class RemixService {
     }
 
     return { ok: true, export: exportReq, distribution };
+  }
+
+  /**
+   * License expiry reminders: find issued licenses whose term ends within
+   * `withinDays` (and hasn't already lapsed) and dispatch an outbound alert to
+   * the license holder. Idempotent to call; returns what was reminded so an
+   * admin/cron can report it. Perpetual licenses (valid_until = null) are skipped.
+   */
+  async remindExpiringLicenses(opts: { withinDays?: number; now?: string } = {}): Promise<{
+    reminded: number;
+    expiring: { export_id: string; requester_id: string; valid_until: string; days_left: number }[];
+  }> {
+    const withinDays = Math.max(1, opts.withinDays ?? 14);
+    const nowISO = opts.now ?? now();
+    const nowMs = new Date(nowISO).getTime();
+    const horizonMs = nowMs + withinDays * 86_400_000;
+
+    const exports = await this.repo.listExports();
+    const expiring: { export_id: string; requester_id: string; valid_until: string; days_left: number }[] = [];
+    for (const ex of exports) {
+      if (!ex.license_doc) continue;
+      const asset = await this.assets.get(ex.license_doc);
+      if (!asset) continue;
+      const manifest = asset.data as LicenseManifest;
+      if (!manifest.valid_until || isLicenseExpired(manifest, nowISO)) continue;
+      const endMs = new Date(manifest.valid_until).getTime();
+      if (endMs > horizonMs) continue; // not yet within the reminder window
+
+      const daysLeft = Math.ceil((endMs - nowMs) / 86_400_000);
+      expiring.push({
+        export_id: ex.export_id,
+        requester_id: ex.requester_id,
+        valid_until: manifest.valid_until,
+        days_left: daysLeft,
+      });
+      void this.notifier.send({
+        kind: "license_expiry",
+        to: ex.requester_id,
+        title: "라이선스 만료 임박",
+        body: `${ex.use_type} 라이선스가 ${daysLeft}일 후(${manifest.valid_until.slice(0, 10)}) 만료됩니다. 갱신을 검토하세요.`,
+        meta: { export_id: ex.export_id, valid_until: manifest.valid_until, days_left: daysLeft },
+      });
+    }
+    return { reminded: expiring.length, expiring };
   }
 }

@@ -258,6 +258,11 @@ export function createApi(cfg: ClientConfig) {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    remindExpiringLicenses: (withinDays = 14) =>
+      req<{
+        reminded: number;
+        expiring: { export_id: string; requester_id: string; valid_until: string; days_left: number }[];
+      }>("/admin/licenses/remind", { method: "POST", body: JSON.stringify({ within_days: withinDays }) }),
   };
 
   return api;

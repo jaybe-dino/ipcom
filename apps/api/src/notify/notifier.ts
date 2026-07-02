@@ -7,7 +7,13 @@
  * when NOTIFY_WEBHOOK_URL is set. Fail-safe by contract — send() never throws,
  * so a flaky notifier can't break the request that triggered it.
  */
-export type NotifyKind = "mention" | "reply" | "dm" | "export_decision" | "settlement";
+export type NotifyKind =
+  | "mention"
+  | "reply"
+  | "dm"
+  | "export_decision"
+  | "settlement"
+  | "license_expiry";
 
 export interface OutboundNotification {
   kind: NotifyKind;

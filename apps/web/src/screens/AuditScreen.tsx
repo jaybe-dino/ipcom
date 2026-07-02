@@ -43,11 +43,29 @@ export function AuditScreen() {
     }
   }
 
+  async function runExpiryReminders() {
+    try {
+      const { reminded } = await api.remindExpiringLicenses(30);
+      setMsg(
+        reminded > 0
+          ? `30일 내 만료 라이선스 ${reminded}건에 만료 알림을 발송했습니다.`
+          : "30일 내 만료 예정인 라이선스가 없습니다.",
+      );
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : "만료 알림 발송에 실패했습니다.");
+    }
+  }
+
   return (
     <section>
-      <div className="scr-head">
-        <h2>감사 콘솔</h2>
-        <p>라이선스 원장의 무결성과 전체 이벤트 이력, 그리고 신고 검토 큐를 관리자에게 제공합니다.</p>
+      <div className="scr-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h2>감사 콘솔</h2>
+          <p>라이선스 원장의 무결성과 전체 이벤트 이력, 그리고 신고 검토 큐를 관리자에게 제공합니다.</p>
+        </div>
+        <button className="btn pri" onClick={runExpiryReminders}>
+          ⏰ 만료 알림 발송
+        </button>
       </div>
 
       {msg && <div className="banner ok">{msg}</div>}

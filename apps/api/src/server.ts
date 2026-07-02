@@ -387,6 +387,16 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     return { license: asset.data };
   });
 
+  // Trigger license-expiry reminders (ADMIN/OWNER; cron-friendly).
+  app.post(
+    "/admin/licenses/remind",
+    { preHandler: [app.authenticate, app.requireRole("ADMIN", "OWNER")] },
+    async (req) => {
+      const body = (req.body ?? {}) as { within_days?: number };
+      return service.remindExpiringLicenses({ withinDays: body.within_days });
+    },
+  );
+
   // Verify a license: manifest seal + detached provenance signature (public).
   app.get("/exports/:id/verify", async (req, reply) => {
     const { id } = req.params as { id: string };

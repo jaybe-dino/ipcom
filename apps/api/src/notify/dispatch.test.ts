@@ -66,5 +66,15 @@ describe("outbound notification dispatch", () => {
 
     expect(events.some((e) => e.kind === "export_decision" && e.to === "user_minji")).toBe(true);
     expect(events.some((e) => e.kind === "settlement" && e.to === "user_minji")).toBe(true);
+
+    // A commercial license carries a 365-day term. A reminder window past that
+    // catches it; a tiny window does not.
+    const near = await service.remindExpiringLicenses({ withinDays: 400 });
+    expect(near.reminded).toBeGreaterThanOrEqual(1);
+    expect(near.expiring.some((x) => x.requester_id === "user_minji")).toBe(true);
+    expect(events.some((e) => e.kind === "license_expiry" && e.to === "user_minji")).toBe(true);
+
+    const far = await service.remindExpiringLicenses({ withinDays: 1 });
+    expect(far.reminded).toBe(0);
   });
 });
