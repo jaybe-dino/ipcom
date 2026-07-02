@@ -14,6 +14,7 @@ import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
 import { moderatorFromEnv } from "./moderation/moderator.js";
 import { ModerationService } from "./moderation/service.js";
+import { SearchService } from "./search.js";
 import { PluginGateway } from "./plugins/gateway.js";
 import { renderShareCard, renderSharePage } from "./share.js";
 import { EventBus } from "./realtime/bus.js";
@@ -39,6 +40,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   const market = new MarketService(repo, assets);
   const community = new CommunityService(repo);
   const moderation = new ModerationService(repo);
+  const search = new SearchService(repo);
   const app = Fastify({ logger: true });
 
   app.register(cors, { origin: true });
@@ -114,6 +116,12 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
   });
 
   app.get("/me/spaces", auth(), async (req) => ({ spaces: await community.mySpaces(uid(req)) }));
+
+  // Cross-entity search (spaces / users / listings)
+  app.get("/search", auth(), async (req) => {
+    const { q } = req.query as { q?: string };
+    return search.search(q ?? "");
+  });
 
   // --- Direct messages (1:1) ---
   app.post("/dm/:userId", auth(), async (req, reply) => {

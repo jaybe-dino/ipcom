@@ -8,10 +8,11 @@ import { DmScreen } from "./screens/DmScreen.js";
 import { GateScreen } from "./screens/GateScreen.js";
 import { HomeScreen } from "./screens/HomeScreen.js";
 import { MarketScreen } from "./screens/MarketScreen.js";
+import { SearchScreen } from "./screens/SearchScreen.js";
 import { SettleScreen } from "./screens/SettleScreen.js";
 import { SpaceScreen } from "./screens/SpaceScreen.js";
 
-export type ScreenId = "home" | "space" | "dm" | "gate" | "consent" | "settle" | "market";
+export type ScreenId = "home" | "space" | "dm" | "search" | "gate" | "consent" | "settle" | "market";
 
 // Single top-level nav. Divider (after 마켓) visually separates community from
 // the creator-studio tools without becoming a second sidebar.
@@ -19,6 +20,7 @@ const NAV: ({ id: ScreenId; label: string; icon: string } | { divider: true })[]
   { id: "home", label: "홈", icon: "🏠" },
   { id: "space", label: "커뮤니티", icon: "💬" },
   { id: "dm", label: "DM", icon: "✉️" },
+  { id: "search", label: "검색", icon: "🔎" },
   { id: "market", label: "마켓", icon: "🛍️" },
   { divider: true },
   { id: "gate", label: "반출", icon: "🚪" },
@@ -116,6 +118,14 @@ export function App() {
             />
           )}
           {screen === "dm" && <DmScreen initialChannel={dmChannel} />}
+          {screen === "search" && (
+            <SearchScreen
+              onEnter={(id) => {
+                setSpaceId(id);
+                go("space");
+              }}
+            />
+          )}
           {screen === "gate" && (
             <GateScreen creationId={exportCreationId} onCancel={() => go("space")} onDone={() => go("settle")} />
           )}

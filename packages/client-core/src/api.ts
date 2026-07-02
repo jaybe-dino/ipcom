@@ -114,6 +114,13 @@ export function createApi(cfg: ClientConfig) {
     listSpaces: () => req<{ spaces: Space[] }>("/spaces"),
     getSpace: (id: string) => req<{ space: Space; ip: IP; channels: Channel[] }>(`/spaces/${id}`),
     mySpaces: () => req<{ spaces: Space[] }>("/me/spaces"),
+    search: (q: string) =>
+      req<{
+        query: string;
+        spaces: Space[];
+        users: { user_id: string; display_name?: string; role: string }[];
+        listings: Listing[];
+      }>(`/search?q=${encodeURIComponent(q)}`),
     createSpace: (name: string) =>
       req<{ space: Space }>("/spaces", { method: "POST", body: JSON.stringify({ name }) }),
     createChannel: (spaceId: string, body: { name: string; type?: Channel["type"]; topic?: string }) =>

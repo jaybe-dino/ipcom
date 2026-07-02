@@ -183,6 +183,16 @@ describe("Community structure", () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it("searches spaces and users by keyword", async () => {
+    await app.inject({ method: "POST", url: "/spaces", headers: bearer(minji), payload: { name: "네온 시티 팬" } });
+    const res = await app.inject({ method: "GET", url: "/search?q=네온", headers: bearer(minji) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().spaces.some((s: { name: string }) => s.name.includes("네온"))).toBe(true);
+
+    const users = await app.inject({ method: "GET", url: "/search?q=민지", headers: bearer(minji) });
+    expect(users.json().users.some((u: { display_name?: string }) => u.display_name === "민지")).toBe(true);
+  });
+
   it("removes membership on leave", async () => {
     const created = await app.inject({
       method: "POST",
