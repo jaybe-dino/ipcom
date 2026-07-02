@@ -79,6 +79,8 @@ export interface Repo {
   // Creations
   getCreation(id: string): Promise<Creation | null>;
   saveCreation(creation: Creation): Promise<void>;
+  /** Direct remix children of a creation (creations whose parent is `id`). */
+  listCreationChildren(id: string): Promise<Creation[]>;
 
   // Exports
   getExport(id: string): Promise<ExportRequest | null>;

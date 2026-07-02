@@ -79,6 +79,7 @@ export const creations = pgTable("creations", {
   plugin_id: text("plugin_id").notNull(),
   action: text("action").$type<CreativeAction>().notNull(),
   prompt_ref: text("prompt_ref"),
+  parent_creation_id: text("parent_creation_id"),
   source_assets: jsonb("source_assets").$type<string[]>().notNull().default([]),
   output_asset: text("output_asset"),
   moderation: jsonb("moderation").$type<ModerationResult>().notNull(),

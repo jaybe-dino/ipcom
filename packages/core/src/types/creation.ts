@@ -35,6 +35,8 @@ export interface Creation {
   plugin_id: string;
   action: CreativeAction;
   prompt_ref?: UUID | null;
+  /** Remix lineage: the creation this was derived from (2차창작 추적), if any. */
+  parent_creation_id?: UUID | null;
   source_assets: string[];
   /** Internal-use output asset (carries watermark metadata). */
   output_asset?: string | null;

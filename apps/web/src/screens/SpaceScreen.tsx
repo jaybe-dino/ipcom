@@ -51,6 +51,7 @@ export function SpaceScreen({
   const [prompt, setPrompt] = useState("아티스트 G 컨셉, 비 내리는 네온 거리...");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "err" | "ok"; text: string } | null>(null);
+  const [remixParent, setRemixParent] = useState<Creation | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   function upsert(post: Post, author?: AuthorRef | null, creation?: Creation | null) {
@@ -219,7 +220,12 @@ export function SpaceScreen({
     setBusy(true);
     setMsg(null);
     try {
-      const { creation } = await api.generate(spaceId, { action, prompt, channel_id: activeChannel });
+      const { creation } = await api.generate(spaceId, {
+        action,
+        prompt,
+        channel_id: activeChannel,
+        parent_creation_id: remixParent?.creation_id,
+      });
       upsert(
         {
           post_id: `local_${creation.creation_id}`,
@@ -232,7 +238,13 @@ export function SpaceScreen({
         user ? { user_id: user.user_id, display_name: user.display_name, role: user.role } : null,
         creation,
       );
-      setMsg({ kind: "ok", text: "생성 완료 — 채널에 공유되었습니다 (출처·AI 표시 부착)." });
+      setMsg({
+        kind: "ok",
+        text: remixParent
+          ? "리믹스 완료 — 원본과의 계보가 기록되었습니다 (출처·AI 표시 부착)."
+          : "생성 완료 — 채널에 공유되었습니다 (출처·AI 표시 부착).",
+      });
+      setRemixParent(null);
     } catch (e) {
       const reason = e instanceof ApiError ? e.message : "unknown";
       setMsg({
@@ -247,6 +259,14 @@ export function SpaceScreen({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Begin a remix: set the parent and switch the composer to AI mode. */
+  function startRemix(parent: Creation) {
+    setRemixParent(parent);
+    setMode("ai");
+    setAction(parent.action);
+    setMsg({ kind: "ok", text: "리믹스 원본을 선택했습니다. 프롬프트를 다듬고 생성하세요." });
   }
 
   const grouped = groupChannels(channels);
@@ -387,6 +407,7 @@ export function SpaceScreen({
                         <div className="cbody">
                           <div className="cmeta">
                             <span>🧩 {cr.plugin_id}</span>
+                            {cr.parent_creation_id && <span className="pill p">↳ 리믹스</span>}
                             <span className={`pill ${cr.status === "generating" ? "w" : cr.status === "failed" ? "d" : "g"}`}>
                               {cr.status}
                             </span>
@@ -399,6 +420,13 @@ export function SpaceScreen({
                             onClick={() => onExport(cr.creation_id)}
                           >
                             외부 반출 →
+                          </button>
+                          <button
+                            className="btn gho"
+                            disabled={cr.status !== "generated" && cr.status !== "shared" && cr.status !== "exported"}
+                            onClick={() => startRemix(cr)}
+                          >
+                            🔗 리믹스
                           </button>
                         </div>
                       </div>
@@ -481,6 +509,12 @@ export function SpaceScreen({
               </>
             ) : (
               <>
+                {remixParent && (
+                  <div className="reply-chip">
+                    🔗 리믹스 원본: [{remixParent.action}] {remixParent.creation_id.slice(0, 12)}…
+                    <button onClick={() => setRemixParent(null)}>✕</button>
+                  </div>
+                )}
                 <div className="plugbar">
                   {PLUGINS.map((pl) => (
                     <div

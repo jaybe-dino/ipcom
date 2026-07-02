@@ -217,6 +217,42 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     expect(res.statusCode).toBe(401);
   });
 
+  it("tracks remix lineage across derived generations", async () => {
+    const gen = async (prompt: string, parent?: string) =>
+      app.inject({
+        method: "POST",
+        url: "/spaces/space_artist_g/generations",
+        headers: bearer(creatorToken),
+        payload: { action: "image", prompt, channel_id: "ch_notice", parent_creation_id: parent },
+      });
+
+    const root = (await gen("lineage root")).json().creation.creation_id as string;
+    const child = (await gen("lineage remix", root)).json().creation.creation_id as string;
+    const grand = (await gen("lineage remix²", child)).json().creation.creation_id as string;
+
+    // Grandchild sees the full ancestor chain (nearest-first) at depth 2.
+    const lin = await app.inject({ method: "GET", url: `/generations/${grand}/lineage` });
+    expect(lin.statusCode).toBe(200);
+    const body = lin.json();
+    expect(body.depth).toBe(2);
+    expect(body.ancestors.map((c: { creation_id: string }) => c.creation_id)).toEqual([child, root]);
+
+    // Root lists its direct remix child.
+    const rootLin = (await app.inject({ method: "GET", url: `/generations/${root}/lineage` })).json();
+    expect(rootLin.children.map((c: { creation_id: string }) => c.creation_id)).toContain(child);
+  });
+
+  it("rejects a remix whose parent belongs to another IP", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/spaces/space_artist_g/generations",
+      headers: bearer(creatorToken),
+      payload: { action: "image", prompt: "bad remix", parent_creation_id: "cr_does_not_exist" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe("parent_creation_not_found");
+  });
+
   it("issues a signed license and verifies its seal + signature", async () => {
     const gen = await app.inject({
       method: "POST",

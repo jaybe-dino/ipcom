@@ -220,6 +220,9 @@ export class MemoryRepo implements Repo {
   async saveCreation(creation: Creation) {
     this.creations.set(creation.creation_id, creation);
   }
+  async listCreationChildren(id: string) {
+    return [...this.creations.values()].filter((c) => c.parent_creation_id === id);
+  }
 
   async getExport(id: string) {
     return this.exports.get(id) ?? null;

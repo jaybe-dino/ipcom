@@ -180,12 +180,21 @@ export function createApi(cfg: ClientConfig) {
 
     generate: (
       spaceId: string,
-      body: { action: Creation["action"]; prompt: string; channel_id?: string },
+      body: {
+        action: Creation["action"];
+        prompt: string;
+        channel_id?: string;
+        parent_creation_id?: string;
+      },
     ) =>
       req<{ creation: Creation }>(`/spaces/${spaceId}/generations`, {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    lineage: (creationId: string) =>
+      req<{ creation: Creation; ancestors: Creation[]; children: Creation[]; depth: number }>(
+        `/generations/${creationId}/lineage`,
+      ),
     requestExport: (creationId: string, body: { use_type: UseType; sale_price?: number }) =>
       req<{ export: ExportRequest }>(`/generations/${creationId}/export`, {
         method: "POST",

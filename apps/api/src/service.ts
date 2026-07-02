@@ -43,11 +43,22 @@ export class RemixService {
     pluginId?: string;
     sourceAssets?: string[];
     moderationScores?: Record<string, number>;
+    /** Remix lineage: the creation this generation is derived from, if any. */
+    parentCreationId?: string;
     /** When set, a Post is created in this channel and broadcast in real time. */
     channelId?: string;
   }): Promise<{ ok: true; creation: Creation } | { ok: false; status: number; reason: string }> {
     const ctx = await this.repo.spaceWithIp(params.spaceId);
     if (!ctx) return { ok: false, status: 404, reason: "space_not_found" };
+
+    // Remix: a derived work must reference an existing creation of the same IP.
+    if (params.parentCreationId) {
+      const parent = await this.repo.getCreation(params.parentCreationId);
+      if (!parent) return { ok: false, status: 404, reason: "parent_creation_not_found" };
+      if (parent.ip_id !== ctx.ip.ip_id) {
+        return { ok: false, status: 400, reason: "parent_ip_mismatch" };
+      }
+    }
 
     const moderation = await this.moderator.screen({
       prompt: params.prompt,
@@ -75,6 +86,7 @@ export class RemixService {
       creator_id: params.creatorId,
       plugin_id: params.pluginId ?? `${params.action}.pending`,
       action: params.action,
+      parent_creation_id: params.parentCreationId ?? null,
       source_assets: params.sourceAssets ?? [],
       output_asset: null,
       moderation,
@@ -158,6 +170,39 @@ export class RemixService {
     if (p.channelId) {
       this.bus?.publish({ type: "creation.updated", channel_id: p.channelId, creation: fresh });
     }
+  }
+
+  /**
+   * Remix lineage (2차창작 추적): the chain of ancestors up to the root plus the
+   * direct remix children of a creation. Ancestor walking is depth-capped to
+   * guard against a malformed cycle.
+   */
+  async lineage(creationId: string): Promise<
+    | {
+        ok: true;
+        creation: Creation;
+        ancestors: Creation[];
+        children: Creation[];
+        depth: number;
+      }
+    | { ok: false; status: number; reason: string }
+  > {
+    const creation = await this.repo.getCreation(creationId);
+    if (!creation) return { ok: false, status: 404, reason: "creation_not_found" };
+
+    const ancestors: Creation[] = [];
+    const seen = new Set<string>([creation.creation_id]);
+    let cursor = creation.parent_creation_id ?? null;
+    while (cursor && !seen.has(cursor) && ancestors.length < 64) {
+      const parent = await this.repo.getCreation(cursor);
+      if (!parent) break;
+      ancestors.push(parent);
+      seen.add(parent.creation_id);
+      cursor = parent.parent_creation_id ?? null;
+    }
+    const children = await this.repo.listCreationChildren(creationId);
+    // Ancestors are ordered nearest-first; depth is the distance to the root.
+    return { ok: true, creation, ancestors, children, depth: ancestors.length };
   }
 
   /** Community chat: send a plain text message (optionally a reply) and broadcast. */

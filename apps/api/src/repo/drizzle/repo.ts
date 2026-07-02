@@ -77,10 +77,12 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     )`,
     sql`CREATE TABLE IF NOT EXISTS creations (
       creation_id text PRIMARY KEY, ip_id text NOT NULL, creator_id text NOT NULL,
-      plugin_id text NOT NULL, action text NOT NULL, prompt_ref text,
+      plugin_id text NOT NULL, action text NOT NULL, prompt_ref text, parent_creation_id text,
       source_assets jsonb NOT NULL DEFAULT '[]', output_asset text,
       moderation jsonb NOT NULL, provenance jsonb, status text NOT NULL, created_at timestamptz NOT NULL
     )`,
+    // Backfill for existing deployments created before lineage tracking.
+    sql`ALTER TABLE creations ADD COLUMN IF NOT EXISTS parent_creation_id text`,
     sql`CREATE TABLE IF NOT EXISTS export_requests (
       export_id text PRIMARY KEY, creation_id text NOT NULL, requester_id text NOT NULL,
       use_type text NOT NULL, approval text NOT NULL, fee_amount bigint NOT NULL,
@@ -155,6 +157,7 @@ function rowToCreation(r: typeof creations.$inferSelect): Creation {
     plugin_id: r.plugin_id,
     action: r.action,
     prompt_ref: r.prompt_ref,
+    parent_creation_id: r.parent_creation_id,
     source_assets: r.source_assets,
     output_asset: r.output_asset,
     moderation: r.moderation,
@@ -415,6 +418,10 @@ export class DrizzleRepo implements Repo {
       .insert(creations)
       .values(creation)
       .onConflictDoUpdate({ target: creations.creation_id, set: creation });
+  }
+  async listCreationChildren(id: string) {
+    const rows = await this.db.select().from(creations).where(eq(creations.parent_creation_id, id));
+    return rows.map(rowToCreation);
   }
 
   async getExport(id: string) {

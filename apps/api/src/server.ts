@@ -262,6 +262,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
         plugin_id?: string;
         source_assets?: string[];
         moderation_scores?: Record<string, number>;
+        parent_creation_id?: string;
         channel_id?: string;
       };
       const result = await service.submitGeneration({
@@ -272,6 +273,7 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
         pluginId: body.plugin_id,
         sourceAssets: body.source_assets,
         moderationScores: body.moderation_scores,
+        parentCreationId: body.parent_creation_id,
         channelId: body.channel_id,
       });
       if (!result.ok) return reply.code(result.status).send({ error: result.reason });
@@ -284,6 +286,15 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const creation = await repo.getCreation(id);
     if (!creation) return reply.code(404).send({ error: "creation_not_found" });
     return { creation };
+  });
+
+  // Remix lineage: ancestor chain to the root + direct remix children.
+  app.get("/generations/:id/lineage", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const result = await service.lineage(id);
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    const { ok: _ok, ...body } = result;
+    return body;
   });
 
   // --- Internal share (G2) ---
