@@ -10,6 +10,7 @@ import { registerAuth } from "./auth/plugin.js";
 import "./auth/types.js";
 import type { LicenseManifest } from "@remix-hub/core";
 import { assetStoreFromEnv } from "./assets/store.js";
+import { embedWatermark, extractWatermark } from "./assets/watermark.js";
 import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
 import { registerObservability } from "./http/observability.js";
@@ -291,6 +292,35 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const creation = await service.shareInternally(id);
     if (!creation) return reply.code(404).send({ error: "creation_not_found" });
     return { creation };
+  });
+
+  // --- Pixel watermark (real PNG steganography) ---
+  // Embed an invisible provenance mark into a creator's PNG, and verify it back.
+  // Larger body limit (8 MB) since payloads are base64-encoded images.
+  const wmOpts = { ...auth(), bodyLimit: 8 * 1024 * 1024 };
+  app.post("/provenance/watermark", wmOpts, async (req, reply) => {
+    const body = req.body as { png_base64?: string; payload?: string };
+    if (!body?.png_base64 || !body?.payload) {
+      return reply.code(400).send({ error: "png_base64_and_payload_required" });
+    }
+    try {
+      const png = Buffer.from(body.png_base64, "base64");
+      const marked = embedWatermark(png, body.payload);
+      return { png_base64: marked.toString("base64") };
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message });
+    }
+  });
+
+  app.post("/provenance/watermark/verify", wmOpts, async (req, reply) => {
+    const body = req.body as { png_base64?: string };
+    if (!body?.png_base64) return reply.code(400).send({ error: "png_base64_required" });
+    try {
+      const payload = extractWatermark(Buffer.from(body.png_base64, "base64"));
+      return { watermarked: payload !== null, payload };
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message });
+    }
   });
 
   // --- External export (G3) ---

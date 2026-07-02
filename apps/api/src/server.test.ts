@@ -187,6 +187,36 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     expect(page.statusCode).toBe(404);
   });
 
+  it("watermarks a real PNG and verifies the embedded provenance", async () => {
+    // Build a tiny 8x8 RGBA PNG in-line (matches the codec in assets/watermark).
+    const { encodePng } = await import("./assets/watermark.js");
+    const data = new Uint8Array(32 * 32 * 4).fill(200);
+    const png64 = Buffer.from(encodePng({ width: 32, height: 32, data })).toString("base64");
+
+    const wm = await app.inject({
+      method: "POST",
+      url: "/provenance/watermark",
+      headers: bearer(creatorToken),
+      payload: { png_base64: png64, payload: "exp_demo|hash:abc" },
+    });
+    expect(wm.statusCode).toBe(200);
+    const marked = wm.json().png_base64 as string;
+    expect(marked).not.toBe(png64); // pixels changed
+
+    const verify = await app.inject({
+      method: "POST",
+      url: "/provenance/watermark/verify",
+      headers: bearer(creatorToken),
+      payload: { png_base64: marked },
+    });
+    expect(verify.json()).toMatchObject({ watermarked: true, payload: "exp_demo|hash:abc" });
+  });
+
+  it("requires auth to watermark (401)", async () => {
+    const res = await app.inject({ method: "POST", url: "/provenance/watermark", payload: {} });
+    expect(res.statusCode).toBe(401);
+  });
+
   it("issues a signed license and verifies its seal + signature", async () => {
     const gen = await app.inject({
       method: "POST",
