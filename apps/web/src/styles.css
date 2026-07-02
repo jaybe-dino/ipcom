@@ -301,6 +301,11 @@ body {
   background: var(--panel);
 }
 .plugbar { display: flex; gap: 7px; margin-bottom: 9px; flex-wrap: wrap; }
+.modelrow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.modelrow select {
+  flex: 1; background: var(--panel); color: var(--txt); border: 1px solid var(--line);
+  border-radius: 9px; padding: 7px 9px; font-size: 12.5px; outline: none;
+}
 .plug {
   display: flex;
   align-items: center;

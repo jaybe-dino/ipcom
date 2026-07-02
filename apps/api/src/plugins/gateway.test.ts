@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { nimConfigFromEnv } from "./nim.js";
 import { PluginGateway } from "./gateway.js";
+import type { PluginCapability, RemixPlugin } from "./types.js";
+
+/** A trivial always-succeeds adapter for ordering tests. */
+function fakePlugin(id: string, capabilities: PluginCapability[]): RemixPlugin {
+  return {
+    id,
+    capabilities,
+    async submit() {
+      return { job_id: `${id}_job`, plugin_id: id, status: "succeeded" };
+    },
+    async poll() {
+      return { status: "succeeded", progress: 1, output: `asset://${id}/out` };
+    },
+    provenance(output, req) {
+      return { source_assets: [], model_info: { plugin_id: id }, prompt: req.prompt };
+    },
+  };
+}
 
 describe("PluginGateway", () => {
   it("falls back to the stub adapter when no vendor is configured", async () => {
@@ -22,6 +40,18 @@ describe("PluginGateway", () => {
       const out = await gw.generate({ prompt: "x", source_assets: [], ip_id: "ip_1", action });
       expect(out.output).toBeTruthy();
     }
+  });
+
+  it("prefers the user-selected adapter, else the first capable one", async () => {
+    const gw = new PluginGateway([fakePlugin("alpha", ["image"]), fakePlugin("beta", ["image"])]);
+    const base = { prompt: "x", source_assets: [], ip_id: "ip_1", action: "image" as const };
+
+    // Default: first capable adapter (alpha).
+    expect((await gw.generate(base)).plugin_id).toBe("alpha");
+    // Explicit preference wins.
+    expect((await gw.generate({ ...base, preferred_plugin_id: "beta" })).plugin_id).toBe("beta");
+    // Unknown/incapable preference falls back to capability routing.
+    expect((await gw.generate({ ...base, preferred_plugin_id: "ghost" })).plugin_id).toBe("alpha");
   });
 });
 

@@ -149,10 +149,12 @@ export class RemixService {
         source_assets: p.sourceAssets,
         ip_id: p.ipId,
         action: p.action,
+        preferred_plugin_id: p.pluginId,
       });
       fresh.output_asset = job.output;
       fresh.provenance = job.provenance;
-      fresh.plugin_id = p.pluginId ?? job.plugin_id;
+      // Record the adapter that actually produced the asset (post-failover).
+      fresh.plugin_id = job.plugin_id;
       fresh.status = "generated";
       await this.repo.saveCreation(fresh);
       await this.repo.appendLedger({

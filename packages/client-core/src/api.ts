@@ -186,6 +186,7 @@ export function createApi(cfg: ClientConfig) {
         prompt: string;
         channel_id?: string;
         parent_creation_id?: string;
+        plugin_id?: string;
       },
     ) =>
       req<{ creation: Creation }>(`/spaces/${spaceId}/generations`, {

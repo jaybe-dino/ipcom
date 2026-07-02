@@ -13,6 +13,15 @@ const PLUGINS: { action: CreativeAction; label: string }[] = [
   { action: "characterize", label: "🧊 캐릭터" },
 ];
 
+// Mirrors the server's ACTION_CAPABILITY so we can filter models per action.
+const ACTION_CAP: Record<CreativeAction, string> = {
+  image: "image",
+  video_recast: "video",
+  music: "music",
+  voice: "voice",
+  characterize: "image",
+};
+
 const COLORS = ["#7c5cff", "#23d6a0", "#3aa0ff", "#ffb020", "#ff5d6c"];
 const colorFor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
@@ -52,6 +61,8 @@ export function SpaceScreen({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "err" | "ok"; text: string } | null>(null);
   const [remixParent, setRemixParent] = useState<Creation | null>(null);
+  const [pluginId, setPluginId] = useState<string>(""); // "" = auto (Rights Engine picks)
+  const inventory = useAsync(() => api.plugins(), []);
   const feedRef = useRef<HTMLDivElement>(null);
 
   function upsert(post: Post, author?: AuthorRef | null, creation?: Creation | null) {
@@ -225,6 +236,7 @@ export function SpaceScreen({
         prompt,
         channel_id: activeChannel,
         parent_creation_id: remixParent?.creation_id,
+        plugin_id: pluginId || undefined,
       });
       upsert(
         {
@@ -526,6 +538,19 @@ export function SpaceScreen({
                     </div>
                   ))}
                 </div>
+                <div className="modelrow">
+                  <span className="hint">🧠 모델</span>
+                  <select value={pluginId} onChange={(e) => setPluginId(e.target.value)}>
+                    <option value="">자동 (권한 엔진이 선택)</option>
+                    {(inventory.data?.plugins ?? [])
+                      .filter((p) => p.capabilities.includes(ACTION_CAP[action]))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {pluginLabel(p.id)}
+                        </option>
+                      ))}
+                  </select>
+                </div>
                 <div className="inputrow">
                   <span>✏️</span>
                   <input value={prompt} onChange={(e) => setPrompt(e.target.value)} />
@@ -594,6 +619,16 @@ function groupChannels(channels: Channel[]) {
   return order
     .map((type) => ({ title: titles[type], items: channels.filter((c) => c.type === type) }))
     .filter((g) => g.items.length > 0);
+}
+
+/** Friendly names for known adapter ids; unknown ids show verbatim. */
+function pluginLabel(id: string): string {
+  const known: Record<string, string> = {
+    "stub.local": "기본 (로컬 스텁)",
+    "nvidia.nim": "NVIDIA NIM",
+    "higgsfield": "Higgsfield",
+  };
+  return known[id] ?? id;
 }
 
 function roleLabel(role: AuthorRef["role"]): string {

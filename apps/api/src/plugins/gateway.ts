@@ -50,11 +50,17 @@ export class PluginGateway {
     };
   }
 
-  /** Ordered candidate adapters for an action; stub is always the final fallback. */
-  private candidates(action: CreativeAction): RemixPlugin[] {
+  /**
+   * Ordered candidate adapters for an action; stub is always the final fallback.
+   * A user-selected `preferredId` is tried first (if it serves the capability).
+   */
+  private candidates(action: CreativeAction, preferredId?: string): RemixPlugin[] {
     const cap = ACTION_CAPABILITY[action];
-    const preferred = this.plugins.filter((p) => p.capabilities.includes(cap));
-    return [...preferred, this.stub];
+    const capable = this.plugins.filter((p) => p.capabilities.includes(cap));
+    const ordered = preferredId
+      ? [...capable.filter((p) => p.id === preferredId), ...capable.filter((p) => p.id !== preferredId)]
+      : capable;
+    return [...ordered, this.stub];
   }
 
   /** Submit + poll one adapter until the job reaches a terminal state. */
@@ -78,7 +84,7 @@ export class PluginGateway {
     req: GenRequest,
   ): Promise<{ plugin_id: string; output: string; provenance: ReturnType<RemixPlugin["provenance"]> }> {
     let lastError = "no_adapter";
-    for (const plugin of this.candidates(req.action)) {
+    for (const plugin of this.candidates(req.action, req.preferred_plugin_id)) {
       const result = await this.runOne(plugin, req);
       if (result.status === "succeeded" && result.output) {
         return {

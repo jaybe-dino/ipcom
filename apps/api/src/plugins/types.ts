@@ -27,6 +27,8 @@ export interface GenRequest {
   /** Injected by the Rights Engine after a successful G1 evaluation. */
   ip_id: string;
   action: CreativeAction;
+  /** User-selected adapter to try first (falls back to others, then stub). */
+  preferred_plugin_id?: string;
   /** Optional async-completion callback (queue mode). */
   callback_url?: string;
 }
