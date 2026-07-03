@@ -13,6 +13,7 @@ export {
   type ClientConfig,
   type PluginInventory,
   type AuthorRef,
+  type BrandLicenseItem,
 } from "./api.js";
 export {
   subscribeChannel,

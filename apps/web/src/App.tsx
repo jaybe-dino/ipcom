@@ -8,12 +8,13 @@ import { ConsentScreen } from "./screens/ConsentScreen.js";
 import { DmScreen } from "./screens/DmScreen.js";
 import { GateScreen } from "./screens/GateScreen.js";
 import { HomeScreen } from "./screens/HomeScreen.js";
+import { LicenseScreen } from "./screens/LicenseScreen.js";
 import { MarketScreen } from "./screens/MarketScreen.js";
 import { SearchScreen } from "./screens/SearchScreen.js";
 import { SettleScreen } from "./screens/SettleScreen.js";
 import { SpaceScreen } from "./screens/SpaceScreen.js";
 
-export type ScreenId = "home" | "space" | "dm" | "search" | "gate" | "consent" | "settle" | "market" | "audit";
+export type ScreenId = "home" | "space" | "dm" | "search" | "gate" | "consent" | "settle" | "market" | "license" | "audit";
 
 // Single top-level nav. Divider (after 마켓) visually separates community from
 // the creator-studio tools without becoming a second sidebar.
@@ -23,6 +24,7 @@ const NAV: ({ id: ScreenId; label: string; icon: string } | { divider: true })[]
   { id: "dm", label: "DM", icon: "✉️" },
   { id: "search", label: "검색", icon: "🔎" },
   { id: "market", label: "마켓", icon: "🛍️" },
+  { id: "license", label: "라이선싱", icon: "🎫" },
   { divider: true },
   { id: "gate", label: "반출", icon: "🚪" },
   { id: "consent", label: "동의", icon: "🎛️" },
@@ -138,6 +140,7 @@ export function App() {
           {screen === "consent" && <ConsentScreen />}
           {screen === "settle" && <SettleScreen />}
           {screen === "market" && <MarketScreen />}
+          {screen === "license" && <LicenseScreen />}
           {screen === "audit" && (user.role === "ADMIN" || user.role === "OWNER") && <AuditScreen />}
         </div>
       </main>

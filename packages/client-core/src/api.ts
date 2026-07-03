@@ -41,6 +41,18 @@ export interface PluginInventory {
   plugins: { id: string; capabilities: string[] }[];
 }
 
+/** A shared creation offered for commercial licensing by a brand. */
+export interface BrandLicenseItem {
+  creation_id: string;
+  action: Creation["action"];
+  ip_id: string;
+  ip_name: string;
+  creator_id: string;
+  output_asset: string | null;
+  commercial_allowed: boolean;
+  indicative_fee: number | null;
+}
+
 export interface AuthorRef {
   user_id: string;
   display_name?: string;
@@ -201,6 +213,13 @@ export function createApi(cfg: ClientConfig) {
       ),
     requestExport: (creationId: string, body: { use_type: UseType; sale_price?: number }) =>
       req<{ export: ExportRequest }>(`/generations/${creationId}/export`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    // Brand licensing (marketplace third side).
+    licenseCatalog: () => req<{ catalog: BrandLicenseItem[] }>("/license/catalog"),
+    requestBrandLicense: (creationId: string, body: { brand: string; use_case?: string }) =>
+      req<{ export: ExportRequest }>(`/generations/${creationId}/license-request`, {
         method: "POST",
         body: JSON.stringify(body),
       }),
