@@ -106,7 +106,17 @@ pnpm build       # 전체 빌드
 - 반출 가능한 작품·프롬프트 템플릿 카탈로그, 주문, 라이선스 자동 발급, take rate
 - `GET /market/listings`, `POST /market/listings`, `POST /market/templates`, `POST /market/listings/:id/buy`, `GET /market/orders`
 - 작품 판매는 IP의 `sale` 분배율, 템플릿은 플랫폼 take rate(기본 20%) 적용 → 구매 시 라이선스 매니페스트 발급 + 원장 기록
-- 웹 ⑥ 마켓플레이스 화면에서 판매 등록·구매
+- **프로모션 쿠폰**: `POST /market/coupons`(ADMIN/OWNER)로 % 또는 정액 코드 발급, 구매 시 `coupon_code` 적용(플랫폼이 할인 흡수 → 할인가로 결제·정산)
+- **바이어 포털** `GET /me/orders`(+ 라이선스 다운로드), **판매자 수익** `GET /me/sales`
+- 웹 ⑥ 마켓플레이스 화면에서 판매 등록·구매·쿠폰 적용, 구매내역·판매수익 확인
+
+### 계보·감사·알림·내보내기
+
+- **리믹스 계보(Lineage)** — `GET /generations/:id/lineage`(조상 체인 + 파생 자식), 웹 카드의 `🌿 계보` 뷰어
+- **감사 콘솔**(ADMIN/OWNER) — 원장 무결성·이벤트 이력·신고 검토 큐·쿠폰 관리, `⬇ 원장 CSV`
+- **정산 대시보드** — 수익/분배/일별 추이 차트, `⬇ 정산 CSV`(`GET /settlement/summary.csv`)
+- **라이선스 만료 알림** — `POST /admin/licenses/remind`로 만료 임박 라이선스에 알림 발송
+- **알림** — 인앱(멘션·답글·DM·반출결정·정산·만료) + 아웃바운드 웹훅(`NOTIFY_WEBHOOK_URL`, 이메일/푸시 브리지)
 
 ---
 
