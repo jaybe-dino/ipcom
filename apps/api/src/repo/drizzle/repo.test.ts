@@ -37,8 +37,9 @@ describe("DrizzleRepo (PGlite) — persistence + pipeline", () => {
   });
 
   it("persists seeded data", async () => {
-    expect((await repo.listSpaces()).length).toBe(1);
+    expect((await repo.listSpaces()).length).toBeGreaterThanOrEqual(2);
     expect((await repo.getIp("ip_artist_g"))?.name).toBe("아티스트 G");
+    expect((await repo.getIp("ip_gd"))?.name).toBe("G-DRAGON (오피셜)");
   });
 
   it("blocks hard-limit generation and records the refusal in the DB ledger", async () => {

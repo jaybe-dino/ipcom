@@ -55,10 +55,11 @@ describe("REMIX HUB API — auth + generation → export → settle pipeline", (
     expect(res.statusCode).toBe(403);
   });
 
-  it("lists the seeded space (public)", async () => {
+  it("lists the seeded spaces (public)", async () => {
     const res = await app.inject({ method: "GET", url: "/spaces" });
     expect(res.statusCode).toBe(200);
-    expect(res.json().spaces).toHaveLength(1);
+    const spaces = res.json().spaces as { space_id: string }[];
+    expect(spaces.map((s) => s.space_id)).toEqual(expect.arrayContaining(["space_artist_g", "space_gd"]));
   });
 
   it("blocks a hard-limit generation at G1", async () => {
