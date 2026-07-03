@@ -351,6 +351,28 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     return reply.code(201).send({ export: result.export });
   });
 
+  // --- Brand licensing (marketplace third side) ---
+  // Public catalog of shared creations available for commercial licensing.
+  app.get("/license/catalog", async () => ({ catalog: await service.licenseCatalog() }));
+
+  // A brand submits a commercial-license request; it enters the IP owner's
+  // approval queue and settles through the same Rights Engine gate.
+  app.post("/generations/:id/license-request", auth(), async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { brand?: string; use_case?: string; sale_price?: number };
+    if (!body.brand?.trim()) return reply.code(400).send({ error: "brand_required" });
+    const result = await service.requestExport({
+      creationId: id,
+      requesterId: uid(req),
+      useType: "commercial",
+      salePrice: body.sale_price,
+      brand: body.brand.trim(),
+      useCase: body.use_case?.trim(),
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+    return reply.code(201).send({ export: result.export });
+  });
+
   // Owner-only: approve/reject a pending export.
   app.post(
     "/exports/:id/approve",

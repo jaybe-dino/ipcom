@@ -421,6 +421,9 @@ export class RemixService {
     requesterId: string;
     useType: UseType;
     salePrice?: number;
+    /** External-brand licensing context (the marketplace's third side). */
+    brand?: string;
+    useCase?: string;
   }): Promise<
     { ok: true; export: ExportRequest } | { ok: false; status: number; reason: string }
   > {
@@ -453,6 +456,8 @@ export class RemixService {
       visible_label: verdict.visible_label,
       created_at: now(),
       decided_at: verdict.outcome === "auto" ? now() : null,
+      brand: params.brand ?? null,
+      use_case: params.useCase ?? null,
     };
     await this.repo.saveExport(exportReq);
     creation.status = "export_requested";
@@ -467,10 +472,61 @@ export class RemixService {
         use_type: params.useType,
         approval: exportReq.approval,
         fee_amount: exportReq.fee_amount,
+        brand: exportReq.brand,
+        use_case: exportReq.use_case,
       },
     });
 
     return { ok: true, export: exportReq };
+  }
+
+  /**
+   * Brand-licensing catalog — the marketplace's *third side*. Lists shared
+   * creations an external brand could commercially license, annotated with the
+   * IP name, the creator, and whether the IP's consent policy currently permits
+   * commercial use (with an indicative fee). This is what makes REMIX HUB a
+   * rights protocol rather than a fan storefront: buyers discover fan/AI-made
+   * work and license it through the very same Rights Engine gate.
+   */
+  async licenseCatalog(): Promise<
+    {
+      creation_id: string;
+      action: CreativeAction;
+      ip_id: string;
+      ip_name: string;
+      creator_id: string;
+      output_asset: string | null;
+      commercial_allowed: boolean;
+      indicative_fee: number | null;
+    }[]
+  > {
+    const creations = await this.repo.listCreations();
+    const catalog = [];
+    for (const c of creations) {
+      if (c.status !== "shared" && c.status !== "exported") continue;
+      const ip = await this.repo.getIp(c.ip_id);
+      if (!ip) continue;
+      let commercialAllowed = false;
+      let fee: number | null = null;
+      try {
+        const verdict = exportDecision(ip, "commercial", {});
+        commercialAllowed = verdict.outcome !== "deny";
+        fee = verdict.fee ?? null;
+      } catch {
+        commercialAllowed = false;
+      }
+      catalog.push({
+        creation_id: c.creation_id,
+        action: c.action,
+        ip_id: ip.ip_id,
+        ip_name: ip.name,
+        creator_id: c.creator_id,
+        output_asset: c.output_asset ?? null,
+        commercial_allowed: commercialAllowed,
+        indicative_fee: fee,
+      });
+    }
+    return catalog;
   }
 
   /** IP owner approves or rejects a pending export request. */

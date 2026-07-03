@@ -89,7 +89,8 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       export_id text PRIMARY KEY, creation_id text NOT NULL, requester_id text NOT NULL,
       use_type text NOT NULL, approval text NOT NULL, fee_amount bigint NOT NULL,
       split_snapshot jsonb NOT NULL, license_doc text, visible_label boolean NOT NULL DEFAULT true,
-      created_at timestamptz NOT NULL, decided_at timestamptz, reject_reason text
+      created_at timestamptz NOT NULL, decided_at timestamptz, reject_reason text,
+      brand text, use_case text
     )`,
     sql`CREATE TABLE IF NOT EXISTS ledger_entries (
       entry_id text PRIMARY KEY, index integer NOT NULL, event_type text NOT NULL,
@@ -146,6 +147,8 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount bigint`,
     sql`ALTER TABLE notifications ALTER COLUMN channel_id DROP NOT NULL`,
     sql`ALTER TABLE notifications ALTER COLUMN post_id DROP NOT NULL`,
+    sql`ALTER TABLE export_requests ADD COLUMN IF NOT EXISTS brand text`,
+    sql`ALTER TABLE export_requests ADD COLUMN IF NOT EXISTS use_case text`,
   ];
   for (const stmt of statements) await db.execute(stmt);
 }
@@ -208,6 +211,8 @@ function rowToExport(r: typeof exportRequests.$inferSelect): ExportRequest {
     created_at: r.created_at,
     decided_at: r.decided_at,
     reject_reason: r.reject_reason,
+    brand: r.brand,
+    use_case: r.use_case,
   };
 }
 
@@ -430,6 +435,9 @@ export class DrizzleRepo implements Repo {
       .insert(creations)
       .values(creation)
       .onConflictDoUpdate({ target: creations.creation_id, set: creation });
+  }
+  async listCreations() {
+    return (await this.db.select().from(creations)).map(rowToCreation);
   }
   async listCreationChildren(id: string) {
     const rows = await this.db.select().from(creations).where(eq(creations.parent_creation_id, id));

@@ -66,4 +66,7 @@ export interface ExportRequest {
   decided_at?: ISODateTime | null;
   /** Reason set when approval === "rejected". */
   reject_reason?: string | null;
+  /** External-brand licensing context (the marketplace's "third side"). */
+  brand?: string | null;
+  use_case?: string | null;
 }

@@ -113,6 +113,8 @@ export const exportRequests = pgTable("export_requests", {
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
   decided_at: timestamp("decided_at", { mode: "string", withTimezone: true }),
   reject_reason: text("reject_reason"),
+  brand: text("brand"),
+  use_case: text("use_case"),
 });
 
 export const ledgerEntries = pgTable("ledger_entries", {
