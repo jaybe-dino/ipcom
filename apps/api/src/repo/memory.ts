@@ -2,6 +2,7 @@ import {
   LicenseLedger,
   type Channel,
   type ConsentPolicy,
+  type Coupon,
   type Creation,
   type ExportRequest,
   type IP,
@@ -37,6 +38,7 @@ export class MemoryRepo implements Repo {
   private templates = new Map<string, PromptTemplate>();
   private orders = new Map<string, Order>();
   private reports = new Map<string, Report>();
+  private coupons = new Map<string, Coupon>();
   /** space_id → set of member user_ids. */
   private members = new Map<string, Set<string>>();
   /** key `${post_id}|${user_id}|${emoji}` → Reaction. */
@@ -293,5 +295,19 @@ export class MemoryRepo implements Repo {
   async listReports(status?: ReportStatus) {
     const all = [...this.reports.values()];
     return status ? all.filter((r) => r.status === status) : all;
+  }
+
+  async saveCoupon(coupon: Coupon) {
+    this.coupons.set(coupon.code, coupon);
+  }
+  async getCoupon(code: string) {
+    return this.coupons.get(code) ?? null;
+  }
+  async listCoupons() {
+    return [...this.coupons.values()];
+  }
+  async redeemCoupon(code: string) {
+    const c = this.coupons.get(code);
+    if (c) c.redemptions += 1;
   }
 }

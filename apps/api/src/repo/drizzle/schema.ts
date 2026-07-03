@@ -9,7 +9,17 @@ import type {
   UseType,
   Verification,
 } from "@remix-hub/core";
-import { bigint, boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  doublePrecision,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 /** Postgres schema for REMIX HUB. Rich domain objects are stored as jsonb. */
 
@@ -150,7 +160,21 @@ export const orders = pgTable("orders", {
     .$type<{ owner: number; creator: number; platform: number }>()
     .notNull(),
   license_doc: text("license_doc"),
+  coupon_code: text("coupon_code"),
+  discount: bigint("discount", { mode: "number" }),
   status: text("status").$type<"paid" | "refunded">().notNull(),
+  created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+});
+
+export const coupons = pgTable("coupons", {
+  code: text("code").primaryKey(),
+  kind: text("kind").$type<"percent" | "fixed">().notNull(),
+  value: doublePrecision("value").notNull(),
+  min_price: bigint("min_price", { mode: "number" }),
+  max_redemptions: integer("max_redemptions"),
+  redemptions: integer("redemptions").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  expires_at: timestamp("expires_at", { mode: "string", withTimezone: true }),
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
 });
 
@@ -217,4 +241,5 @@ export const schema = {
   dmThreads,
   notifications,
   reports,
+  coupons,
 };

@@ -1,6 +1,7 @@
 import type {
   Channel,
   ConsentPolicy,
+  Coupon,
   Creation,
   ExportRequest,
   IP,
@@ -115,4 +116,11 @@ export interface Repo {
   saveReport(report: Report): Promise<void>;
   getReport(id: string): Promise<Report | null>;
   listReports(status?: ReportStatus): Promise<Report[]>;
+
+  // Promo coupons
+  saveCoupon(coupon: Coupon): Promise<void>;
+  getCoupon(code: string): Promise<Coupon | null>;
+  listCoupons(): Promise<Coupon[]>;
+  /** Atomically increment a coupon's redemption counter. */
+  redeemCoupon(code: string): Promise<void>;
 }

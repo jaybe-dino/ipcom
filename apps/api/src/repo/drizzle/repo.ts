@@ -4,6 +4,7 @@ import {
   hashEntry,
   type Channel,
   type ConsentPolicy,
+  type Coupon,
   type Creation,
   type ExportRequest,
   type IP,
@@ -27,6 +28,7 @@ import { seedData } from "../seed.js";
 import type { Repo } from "../types.js";
 import {
   channels,
+  coupons,
   creations,
   dmThreads,
   exportRequests,
@@ -547,5 +549,25 @@ export class DrizzleRepo implements Repo {
   async listReports(status?: ReportStatus): Promise<Report[]> {
     if (status) return this.db.select().from(reports).where(eq(reports.status, status));
     return this.db.select().from(reports);
+  }
+
+  async saveCoupon(coupon: Coupon) {
+    await this.db
+      .insert(coupons)
+      .values(coupon)
+      .onConflictDoUpdate({ target: coupons.code, set: coupon });
+  }
+  async getCoupon(code: string): Promise<Coupon | null> {
+    const r = await this.db.select().from(coupons).where(eq(coupons.code, code)).limit(1);
+    return r[0] ?? null;
+  }
+  async listCoupons(): Promise<Coupon[]> {
+    return this.db.select().from(coupons);
+  }
+  async redeemCoupon(code: string) {
+    await this.db
+      .update(coupons)
+      .set({ redemptions: sql`${coupons.redemptions} + 1` })
+      .where(eq(coupons.code, code));
   }
 }

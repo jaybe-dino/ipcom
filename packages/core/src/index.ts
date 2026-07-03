@@ -64,9 +64,11 @@ export {
 
 // Marketplace
 export {
+  applyCoupon,
   creationOrderDistribution,
   templateOrderDistribution,
   TEMPLATE_TAKE_RATE,
+  type CouponResult,
 } from "./market/pricing.js";
 
 // Settlement analytics

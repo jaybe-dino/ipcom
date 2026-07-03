@@ -496,10 +496,43 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
 
   app.post("/market/listings/:id/buy", auth(), async (req, reply) => {
     const { id } = req.params as { id: string };
-    const result = await market.purchase(id, uid(req));
+    const body = (req.body ?? {}) as { coupon_code?: string };
+    const result = await market.purchase(id, uid(req), body.coupon_code);
     if (!result.ok) return reply.code(result.status).send({ error: result.reason });
     return reply.code(201).send({ order: result.value });
   });
+
+  // --- Promo coupons (ADMIN/OWNER manage; anyone applies at checkout) ---
+  app.get(
+    "/market/coupons",
+    { preHandler: [app.authenticate, app.requireRole("ADMIN", "OWNER")] },
+    async () => ({ coupons: await market.listCoupons() }),
+  );
+
+  app.post(
+    "/market/coupons",
+    { preHandler: [app.authenticate, app.requireRole("ADMIN", "OWNER")] },
+    async (req, reply) => {
+      const body = req.body as {
+        code: string;
+        kind: "percent" | "fixed";
+        value: number;
+        min_price?: number;
+        max_redemptions?: number | null;
+        expires_at?: string | null;
+      };
+      const result = await market.createCoupon({
+        code: body.code,
+        kind: body.kind,
+        value: body.value,
+        minPrice: body.min_price,
+        maxRedemptions: body.max_redemptions,
+        expiresAt: body.expires_at,
+      });
+      if (!result.ok) return reply.code(result.status).send({ error: result.reason });
+      return reply.code(201).send({ coupon: result.value });
+    },
+  );
 
   app.get("/market/orders", async () => ({ orders: await repo.listOrders() }));
 

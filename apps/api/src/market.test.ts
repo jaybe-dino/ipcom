@@ -96,6 +96,51 @@ describe("Marketplace", () => {
     expect(order.json().order.distribution).toEqual({ owner: 0, creator: 8_000, platform: 2_000 });
   });
 
+  it("applies a promo coupon at checkout: discounted charge + recomputed split", async () => {
+    // Admin creates a 20%-off code.
+    const created = await app.inject({
+      method: "POST",
+      url: "/market/coupons",
+      headers: bearer(ownerToken),
+      payload: { code: "spring20", kind: "percent", value: 0.2, max_redemptions: 3 },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().coupon.code).toBe("SPRING20");
+
+    const creationId = await makeCreation();
+    const listed = await app.inject({
+      method: "POST",
+      url: "/market/listings",
+      headers: bearer(creatorToken),
+      payload: { kind: "creation", ref_id: creationId, title: "Coupon Piece", price: 100_000 },
+    });
+    const listingId = listed.json().listing.listing_id;
+
+    // Buyer applies the code (case-insensitive). 100k → 80k, split over 80k.
+    const order = await app.inject({
+      method: "POST",
+      url: `/market/listings/${listingId}/buy`,
+      headers: bearer(ownerToken),
+      payload: { coupon_code: "spring20" },
+    });
+    expect(order.statusCode).toBe(201);
+    const o = order.json().order;
+    expect(o.amount).toBe(80_000);
+    expect(o.discount).toBe(20_000);
+    expect(o.coupon_code).toBe("SPRING20");
+    expect(o.distribution).toEqual({ owner: 32_000, creator: 32_000, platform: 16_000 });
+
+    // An unknown code is rejected.
+    const bad = await app.inject({
+      method: "POST",
+      url: `/market/listings/${listingId}/buy`,
+      headers: bearer(ownerToken),
+      payload: { coupon_code: "NOPE" },
+    });
+    expect(bad.statusCode).toBe(404);
+    expect(bad.json().error).toBe("coupon_not_found");
+  });
+
   it("keeps the ledger intact after marketplace settlements", async () => {
     const res = await app.inject({ method: "GET", url: "/ledger" });
     expect(res.json().integrity_ok).toBe(true);

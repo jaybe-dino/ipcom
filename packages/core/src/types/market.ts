@@ -44,6 +44,31 @@ export interface Order {
   distribution: { owner: Money; creator: Money; platform: Money };
   /** Issued license manifest asset id. */
   license_doc?: UUID | null;
+  /** Promo code applied at checkout, if any, and the discount it granted. */
+  coupon_code?: string | null;
+  discount?: Money | null;
   status: OrderStatus;
+  created_at: ISODateTime;
+}
+
+/** Discount kind: percentage off (0..1) or a fixed KRW amount. */
+export type CouponKind = "percent" | "fixed";
+
+/**
+ * A marketplace promo code (PRD §6). The platform absorbs the discount off its
+ * take: the buyer pays less, the transaction settles on the discounted amount.
+ */
+export interface Coupon {
+  code: string;
+  kind: CouponKind;
+  /** For "percent": fraction in (0,1]. For "fixed": KRW off. */
+  value: number;
+  /** Minimum listing price the code applies to. */
+  min_price?: Money | null;
+  /** Max redemptions across all buyers (null = unlimited). */
+  max_redemptions?: number | null;
+  redemptions: number;
+  active: boolean;
+  expires_at?: ISODateTime | null;
   created_at: ISODateTime;
 }
