@@ -21,6 +21,28 @@ export function AuditScreen() {
 
   const ledger = useAsync(() => api.getLedger(), []);
   const reports = useAsync(() => api.adminReports("open"), [refresh]);
+  const coupons = useAsync(() => api.listCoupons(), [refresh]);
+
+  const [cCode, setCCode] = useState("");
+  const [cKind, setCKind] = useState<"percent" | "fixed">("percent");
+  const [cValue, setCValue] = useState("");
+
+  async function createCoupon() {
+    const code = cCode.trim();
+    const raw = Number(cValue);
+    if (!code || !raw) return setMsg("쿠폰 코드와 값을 입력하세요.");
+    // percent field is entered as a whole number (20 → 0.2).
+    const value = cKind === "percent" ? raw / 100 : raw;
+    try {
+      const { coupon } = await api.createCoupon({ code, kind: cKind, value });
+      setMsg(`쿠폰 ${coupon.code} 발급 완료.`);
+      setCCode("");
+      setCValue("");
+      setRefresh((n) => n + 1);
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : "쿠폰 발급에 실패했습니다.");
+    }
+  }
 
   const entries = ledger.data?.entries ?? [];
   const filtered = useMemo(
@@ -105,6 +127,57 @@ export function AuditScreen() {
         {(reports.data?.reports ?? []).map((r) => (
           <ReportRow key={r.report_id} r={r} onResolve={resolve} />
         ))}
+      </div>
+
+      <div className="box" style={{ marginBottom: 14 }}>
+        <h3>🎟️ 프로모션 쿠폰</h3>
+        <div className="coupon-form">
+          <input
+            value={cCode}
+            onChange={(e) => setCCode(e.target.value.toUpperCase())}
+            placeholder="코드 (예: SPRING20)"
+          />
+          <select value={cKind} onChange={(e) => setCKind(e.target.value as "percent" | "fixed")}>
+            <option value="percent">% 할인</option>
+            <option value="fixed">₩ 정액</option>
+          </select>
+          <input
+            type="number"
+            value={cValue}
+            onChange={(e) => setCValue(e.target.value)}
+            placeholder={cKind === "percent" ? "20 (=20%)" : "5000 (원)"}
+          />
+          <button className="btn pri" onClick={createCoupon}>
+            발급
+          </button>
+        </div>
+        {(coupons.data?.coupons.length ?? 0) === 0 ? (
+          <div className="hint" style={{ marginTop: 8 }}>발급된 쿠폰이 없습니다.</div>
+        ) : (
+          <table style={{ marginTop: 10 }}>
+            <tbody>
+              <tr>
+                <th>코드</th>
+                <th>할인</th>
+                <th>사용</th>
+                <th>상태</th>
+              </tr>
+              {coupons.data!.coupons.map((c) => (
+                <tr key={c.code}>
+                  <td style={{ fontFamily: "monospace" }}>{c.code}</td>
+                  <td>{c.kind === "percent" ? `${Math.round(c.value * 100)}%` : krw(c.value)}</td>
+                  <td>
+                    {c.redemptions}
+                    {c.max_redemptions ? ` / ${c.max_redemptions}` : ""}
+                  </td>
+                  <td>
+                    <span className={`pill ${c.active ? "g" : "d"}`}>{c.active ? "활성" : "비활성"}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="box">

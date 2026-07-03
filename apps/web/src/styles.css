@@ -301,6 +301,17 @@ body {
   background: var(--panel);
 }
 .plugbar { display: flex; gap: 7px; margin-bottom: 9px; flex-wrap: wrap; }
+/* Marketplace coupon input */
+.coupon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; background: var(--panel2); }
+.coupon-row span { font-size: 12.5px; color: var(--mut); font-weight: 600; white-space: nowrap; }
+.coupon-row input { flex: 1; background: var(--panel); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 7px 10px; font-size: 13px; letter-spacing: 1px; outline: none; }
+
+/* Audit console — coupon create form */
+.coupon-form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.coupon-form input, .coupon-form select { background: var(--panel2); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; }
+.coupon-form input:first-child { flex: 1; min-width: 140px; letter-spacing: 1px; }
+.coupon-form input[type="number"] { width: 120px; }
+
 /* Audit console — report queue rows */
 .audit-report { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
 .audit-report:first-of-type { border-top: none; }
