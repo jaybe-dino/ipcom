@@ -244,7 +244,7 @@ export class RemixService {
   private async notify(post: Post): Promise<void> {
     const text = post.text ?? "";
     const actor = post.author_id;
-    const recipients = new Map<string, NotificationType>();
+    const recipients = new Map<string, "mention" | "reply" | "dm">();
 
     if (post.channel_id.startsWith("dm_")) {
       for (const p of post.channel_id.slice(3).split("__")) {
@@ -272,7 +272,7 @@ export class RemixService {
     recipients.delete(actor);
     const actorUser = recipients.size ? await this.repo.getUser(actor) : null;
     const actorName = actorUser?.display_name ?? actor;
-    const LABEL: Record<NotificationType, string> = { mention: "언급", reply: "답글", dm: "DM" };
+    const LABEL: Record<"mention" | "reply" | "dm", string> = { mention: "언급", reply: "답글", dm: "DM" };
     for (const [userId, type] of recipients) {
       await this.repo.addNotification({
         notification_id: newId("ntf"),
@@ -295,6 +295,30 @@ export class RemixService {
         meta: { channel_id: post.channel_id, post_id: post.post_id },
       });
     }
+  }
+
+  /**
+   * Record a lifecycle event (export decision / settlement / expiry) as an
+   * in-app notification. Unlike community events these have no channel/post, so
+   * those references are null. Outbound (email/push) dispatch is separate.
+   */
+  private async recordLifecycleNotification(
+    userId: string,
+    type: NotificationType,
+    text: string,
+    actorId?: string,
+  ): Promise<void> {
+    await this.repo.addNotification({
+      notification_id: newId("ntf"),
+      user_id: userId,
+      type,
+      actor_id: actorId ?? userId,
+      channel_id: null,
+      post_id: null,
+      text: text.slice(0, 120),
+      read: false,
+      created_at: now(),
+    });
   }
 
   /** Edit a message (author only). */
@@ -480,7 +504,11 @@ export class RemixService {
       payload: { export_id: exportReq.export_id, decision: exportReq.approval },
     });
 
-    // Alert the requester of the owner's decision (email/push if configured).
+    // Alert the requester of the owner's decision (in-app + email/push).
+    const decisionText = params.approve
+      ? `외부 반출 승인 · ${ip.name} · ${exportReq.use_type}`
+      : `외부 반출 거절 · ${ip.name} · ${exportReq.use_type} (${exportReq.reject_reason})`;
+    await this.recordLifecycleNotification(exportReq.requester_id, "export_decision", decisionText, params.ownerId);
     void this.notifier.send({
       kind: "export_decision",
       to: exportReq.requester_id,
@@ -569,6 +597,8 @@ export class RemixService {
 
     // Notify the creator that a settlement occurred with their share.
     if (creation) {
+      const settleText = `정산 완료 · ${exportReq.use_type} · 창작자 배분 ${distribution.creator.toLocaleString("ko-KR")}원`;
+      await this.recordLifecycleNotification(creation.creator_id, "settlement", settleText, actorId);
       void this.notifier.send({
         kind: "settlement",
         to: creation.creator_id,
@@ -619,6 +649,8 @@ export class RemixService {
         valid_until: manifest.valid_until,
         days_left: daysLeft,
       });
+      const expiryText = `라이선스 만료 임박 · ${ex.use_type} · ${daysLeft}일 후(${manifest.valid_until.slice(0, 10)})`;
+      await this.recordLifecycleNotification(ex.requester_id, "license_expiry", expiryText);
       void this.notifier.send({
         kind: "license_expiry",
         to: ex.requester_id,

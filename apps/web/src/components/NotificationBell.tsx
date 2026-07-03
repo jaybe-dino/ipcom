@@ -7,6 +7,19 @@ const LABEL: Record<Notification["type"], string> = {
   mention: "언급",
   reply: "답글",
   dm: "DM",
+  export_decision: "반출",
+  settlement: "정산",
+  license_expiry: "만료",
+};
+
+/** Pill color class per notification type. */
+const PILL: Record<Notification["type"], string> = {
+  mention: "p",
+  reply: "g",
+  dm: "b",
+  export_decision: "b",
+  settlement: "g",
+  license_expiry: "w",
 };
 
 /** Bell with unread badge; polls the count and shows a dropdown on click. */
@@ -53,9 +66,7 @@ export function NotificationBell() {
           {items.length === 0 && <div className="bell-empty">새 알림이 없습니다.</div>}
           {items.map((n) => (
             <div key={n.notification_id} className={`bell-item ${n.read ? "" : "unread"}`}>
-              <span className={`pill ${n.type === "dm" ? "b" : n.type === "mention" ? "p" : "g"}`}>
-                {LABEL[n.type]}
-              </span>
+              <span className={`pill ${PILL[n.type]}`}>{LABEL[n.type]}</span>
               <span className="bell-text">{n.text || "(내용 없음)"}</span>
             </div>
           ))}

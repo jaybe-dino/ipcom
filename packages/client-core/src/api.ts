@@ -236,7 +236,9 @@ export function createApi(cfg: ClientConfig) {
     buyListing: (listingId: string, couponCode?: string) =>
       req<{ order: Order }>(`/market/listings/${listingId}/buy`, {
         method: "POST",
-        body: JSON.stringify({ coupon_code: couponCode }),
+        // Only send a body when a coupon is supplied, so bodyless buys stay
+        // Content-Type-free (Fastify rejects an empty JSON body otherwise).
+        ...(couponCode ? { body: JSON.stringify({ coupon_code: couponCode }) } : {}),
       }),
     listOrders: () => req<{ orders: Order[] }>("/market/orders"),
     // Promo coupons (ADMIN/OWNER manage).

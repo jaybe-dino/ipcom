@@ -689,7 +689,9 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const csv = toCsv(summary.daily, [
       { header: "date", get: (d) => d.date },
       { header: "fees", get: (d) => d.fees },
-      { header: "count", get: (d) => d.count },
+      { header: "owner", get: (d) => d.owner },
+      { header: "creator", get: (d) => d.creator },
+      { header: "platform", get: (d) => d.platform },
     ]);
     return reply
       .type("text/csv; charset=utf-8")

@@ -108,7 +108,8 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     sql`CREATE TABLE IF NOT EXISTS orders (
       order_id text PRIMARY KEY, listing_id text NOT NULL, buyer_id text NOT NULL,
       seller_id text NOT NULL, amount bigint NOT NULL, distribution jsonb NOT NULL,
-      license_doc text, status text NOT NULL, created_at timestamptz NOT NULL
+      license_doc text, coupon_code text, discount bigint,
+      status text NOT NULL, created_at timestamptz NOT NULL
     )`,
     sql`CREATE TABLE IF NOT EXISTS memberships (
       space_id text NOT NULL, user_id text NOT NULL, joined_at timestamptz NOT NULL,
@@ -124,7 +125,7 @@ export async function migrate(db: DrizzleDB): Promise<void> {
     )`,
     sql`CREATE TABLE IF NOT EXISTS notifications (
       notification_id text PRIMARY KEY, user_id text NOT NULL, type text NOT NULL,
-      actor_id text NOT NULL, channel_id text NOT NULL, post_id text NOT NULL,
+      actor_id text NOT NULL, channel_id text, post_id text,
       text text NOT NULL, read boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL
     )`,
     sql`CREATE TABLE IF NOT EXISTS reports (
@@ -132,10 +133,19 @@ export async function migrate(db: DrizzleDB): Promise<void> {
       reporter_id text NOT NULL, reason text NOT NULL, status text NOT NULL,
       created_at timestamptz NOT NULL, resolved_at timestamptz, resolver_id text, note text
     )`,
+    sql`CREATE TABLE IF NOT EXISTS coupons (
+      code text PRIMARY KEY, kind text NOT NULL, value double precision NOT NULL,
+      min_price bigint, max_redemptions integer, redemptions integer NOT NULL DEFAULT 0,
+      active boolean NOT NULL DEFAULT true, expires_at timestamptz, created_at timestamptz NOT NULL
+    )`,
     // Additive columns for existing deployments (idempotent).
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS reply_to text`,
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS edited_at timestamptz`,
     sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url text`,
+    sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code text`,
+    sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount bigint`,
+    sql`ALTER TABLE notifications ALTER COLUMN channel_id DROP NOT NULL`,
+    sql`ALTER TABLE notifications ALTER COLUMN post_id DROP NOT NULL`,
   ];
   for (const stmt of statements) await db.execute(stmt);
 }

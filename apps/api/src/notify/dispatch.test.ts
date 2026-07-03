@@ -76,5 +76,13 @@ describe("outbound notification dispatch", () => {
 
     const far = await service.remindExpiringLicenses({ withinDays: 1 });
     expect(far.reminded).toBe(0);
+
+    // Lifecycle events are also persisted as in-app notifications (no channel).
+    const inApp = await repo.listNotifications("user_minji", 30);
+    const kinds = inApp.map((n) => n.type);
+    expect(kinds).toContain("export_decision");
+    expect(kinds).toContain("settlement");
+    expect(kinds).toContain("license_expiry");
+    expect(inApp.every((n) => (n.type === "mention" || n.type === "reply" || n.type === "dm" ? true : n.channel_id === null))).toBe(true);
   });
 });

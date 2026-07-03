@@ -202,10 +202,12 @@ export const dmThreads = pgTable(
 export const notifications = pgTable("notifications", {
   notification_id: text("notification_id").primaryKey(),
   user_id: text("user_id").notNull(),
-  type: text("type").$type<"mention" | "reply" | "dm">().notNull(),
+  type: text("type")
+    .$type<"mention" | "reply" | "dm" | "export_decision" | "settlement" | "license_expiry">()
+    .notNull(),
   actor_id: text("actor_id").notNull(),
-  channel_id: text("channel_id").notNull(),
-  post_id: text("post_id").notNull(),
+  channel_id: text("channel_id"),
+  post_id: text("post_id"),
   text: text("text").notNull(),
   read: boolean("read").notNull().default(false),
   created_at: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),

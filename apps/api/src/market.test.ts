@@ -157,7 +157,7 @@ describe("Marketplace", () => {
 
     const sum = await app.inject({ method: "GET", url: "/settlement/summary.csv?days=7" });
     expect(sum.statusCode).toBe(200);
-    expect(sum.body).toContain("date,fees,count");
+    expect(sum.body).toContain("date,fees,owner");
   });
 
   it("buyer portal lists my purchases and serves my license, but not others'", async () => {
