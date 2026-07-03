@@ -146,6 +146,20 @@ describe("Marketplace", () => {
     expect(res.json().integrity_ok).toBe(true);
   });
 
+  it("exports the ledger and settlement trend as downloadable CSV", async () => {
+    const led = await app.inject({ method: "GET", url: "/ledger.csv" });
+    expect(led.statusCode).toBe(200);
+    expect(led.headers["content-type"]).toContain("text/csv");
+    expect(led.headers["content-disposition"]).toContain("attachment");
+    const lines = led.body.trim().split("\r\n");
+    expect(lines[0]).toContain("index,event_type,actor"); // header (after BOM)
+    expect(lines.length).toBeGreaterThan(1);
+
+    const sum = await app.inject({ method: "GET", url: "/settlement/summary.csv?days=7" });
+    expect(sum.statusCode).toBe(200);
+    expect(sum.body).toContain("date,fees,count");
+  });
+
   it("buyer portal lists my purchases and serves my license, but not others'", async () => {
     // The owner has bought at least one listing in earlier tests.
     const mine = await app.inject({ method: "GET", url: "/me/orders", headers: bearer(ownerToken) });

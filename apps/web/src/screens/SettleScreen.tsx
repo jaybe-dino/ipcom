@@ -1,5 +1,5 @@
 import type { DailyPoint, LedgerEntry, SettlementSummary } from "@remix-hub/core";
-import { api } from "../api.js";
+import { api, apiUrl } from "../api.js";
 import { krw, useAsync } from "../useAsync.js";
 
 export function SettleScreen() {
@@ -10,9 +10,14 @@ export function SettleScreen() {
 
   return (
     <section>
-      <div className="scr-head">
-        <h2>정산 대시보드</h2>
-        <p>외부 반출·판매에서 발생한 수익과 분배 내역. 모든 건은 라이선스 원장에 기록됩니다.</p>
+      <div className="scr-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h2>정산 대시보드</h2>
+          <p>외부 반출·판매에서 발생한 수익과 분배 내역. 모든 건은 라이선스 원장에 기록됩니다.</p>
+        </div>
+        <a className="btn gho" href={apiUrl("/settlement/summary.csv?days=14")} download>
+          ⬇ 정산 CSV
+        </a>
       </div>
 
       {(ledger.loading || summary.loading) && <div className="box">불러오는 중…</div>}

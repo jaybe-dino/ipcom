@@ -13,6 +13,7 @@ import { assetStoreFromEnv } from "./assets/store.js";
 import { embedWatermark, extractWatermark } from "./assets/watermark.js";
 import { CommunityService } from "./community.js";
 import { MarketService } from "./market.js";
+import { toCsv } from "./http/csv.js";
 import { registerObservability } from "./http/observability.js";
 import { moderatorFromEnv } from "./moderation/moderator.js";
 import { ModerationService } from "./moderation/service.js";
@@ -658,6 +659,42 @@ export function buildServer(repo: Repo = new MemoryRepo()) {
     const days = q.days ? Math.min(90, Math.max(1, Number(q.days) || 14)) : 14;
     const entries = await repo.listLedger();
     return summarizeSettlements(entries, { days, now: new Date().toISOString() });
+  });
+
+  // CSV export of the full license ledger (finance/audit offline analysis).
+  app.get("/ledger.csv", async (_req, reply) => {
+    const entries = await repo.listLedger();
+    const csv = toCsv(entries, [
+      { header: "index", get: (e) => e.index },
+      { header: "event_type", get: (e) => e.event_type },
+      { header: "actor", get: (e) => e.actor },
+      { header: "timestamp", get: (e) => e.timestamp },
+      { header: "amount", get: (e) => e.payload.amount ?? e.payload.fee_amount ?? "" },
+      { header: "payload", get: (e) => e.payload },
+      { header: "payload_hash", get: (e) => e.payload_hash },
+      { header: "prev_hash", get: (e) => e.prev_hash },
+    ]);
+    return reply
+      .type("text/csv; charset=utf-8")
+      .header("content-disposition", 'attachment; filename="remixhub-ledger.csv"')
+      .send(csv);
+  });
+
+  // CSV export of the daily settlement trend.
+  app.get("/settlement/summary.csv", async (req, reply) => {
+    const q = req.query as { days?: string };
+    const days = q.days ? Math.min(90, Math.max(1, Number(q.days) || 14)) : 14;
+    const entries = await repo.listLedger();
+    const summary = summarizeSettlements(entries, { days, now: new Date().toISOString() });
+    const csv = toCsv(summary.daily, [
+      { header: "date", get: (d) => d.date },
+      { header: "fees", get: (d) => d.fees },
+      { header: "count", get: (d) => d.count },
+    ]);
+    return reply
+      .type("text/csv; charset=utf-8")
+      .header("content-disposition", 'attachment; filename="remixhub-settlement.csv"')
+      .send(csv);
   });
 
   // --- Static web (single-service deploy) ---

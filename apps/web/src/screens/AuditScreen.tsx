@@ -1,6 +1,6 @@
 import type { LedgerEntry, Report } from "@remix-hub/client-core";
 import { useMemo, useState } from "react";
-import { ApiError, api } from "../api.js";
+import { ApiError, api, apiUrl } from "../api.js";
 import { krw, useAsync } from "../useAsync.js";
 
 type EventFilter = "all" | LedgerEntry["event_type"];
@@ -85,9 +85,14 @@ export function AuditScreen() {
           <h2>감사 콘솔</h2>
           <p>라이선스 원장의 무결성과 전체 이벤트 이력, 그리고 신고 검토 큐를 관리자에게 제공합니다.</p>
         </div>
-        <button className="btn pri" onClick={runExpiryReminders}>
-          ⏰ 만료 알림 발송
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a className="btn gho" href={apiUrl("/ledger.csv")} download>
+            ⬇ 원장 CSV
+          </a>
+          <button className="btn pri" onClick={runExpiryReminders}>
+            ⏰ 만료 알림 발송
+          </button>
+        </div>
       </div>
 
       {msg && <div className="banner ok">{msg}</div>}
